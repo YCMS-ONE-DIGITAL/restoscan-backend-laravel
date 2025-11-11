@@ -12,14 +12,13 @@ class Restaurant extends Model
     use HasFactory; // ✅ keep this
 
     protected $fillable = [
-        'name',
-        'phone',
-        'email',
-        'address',
-        'logo',
-        'qr_code',
-        'is_active',
         'user_id',
+        'restaurant_name',
+        'address',
+        'city',
+        'state',
+        'pincode',
+        'contact_number',
     ];
 
     // 🔹 One restaurant belongs to one user
