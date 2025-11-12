@@ -18,4 +18,4 @@ jobs:
           ssh-keyscan -H 13.232.71.251 >> ~/.ssh/known_hosts
       - name: Test SSH Connection
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ubuntu@13.232.71.251 "echo ✅ SSH is working!
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ubuntu@13.232.71.251 "echo ✅ SSH is working!"
