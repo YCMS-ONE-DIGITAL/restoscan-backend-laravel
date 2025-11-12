@@ -15,7 +15,7 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H 54.91.51.99 >> ~/.ssh/known_hosts
+          ssh-keyscan -H 13.232.71.251 >> ~/.ssh/known_hosts
       - name: Test SSH Connection
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ubuntu@54.91.51.99 "echo ✅ SSH is working!
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ubuntu@13.232.71.251 "echo ✅ SSH is working!
