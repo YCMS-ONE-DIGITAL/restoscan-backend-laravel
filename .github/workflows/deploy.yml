@@ -19,3 +19,17 @@ jobs:
       - name: Test SSH Connection
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ubuntu@13.232.71.251 "echo ✅ SSH is working!"
+     
+          - name: Deploy to EC2
+           run:
+          rsync -avz -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no" \
+          --rsync-path="sudo rsync" ./ ubuntu@13.232.71.251:/var/www/myapp
+
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ubuntu@13.232.71.251 "
+          sudo chown -R ubuntu:www-data /var/www/myapp &&
+          sudo chmod -R 775 /var/www/myapp &&
+          git config --global --add safe.directory /var/www/myapp &&
+          cd /var/www/myapp &&
+          composer install --no-dev --optimize-autoloader &&
+          sudo systemctl restart apache2
+
