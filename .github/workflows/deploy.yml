@@ -10,6 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Repo checkout करा
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ Setup SSH key
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
@@ -17,12 +22,17 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H 13.232.71.251 >> ~/.ssh/known_hosts
 
+      # 3️⃣ Test SSH connection
       - name: Test SSH Connection
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ubuntu@13.232.71.251 "echo SSH is working!"
 
+      # 4️⃣ Deploy to EC2
       - name: Deploy to EC2
         run: |
+          echo "🔍 Local repo content:"
+          ls -la
+
           rsync -avz -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no" \
           --rsync-path="sudo rsync" ./ ubuntu@13.232.71.251:/var/www/myapp/
 
@@ -31,6 +41,10 @@ jobs:
             sudo chmod -R 775 /var/www/myapp &&
             git config --global --add safe.directory /var/www/myapp &&
             cd /var/www/myapp &&
-            composer install --no-dev --optimize-autoloader &&
+            if [ -f composer.json ]; then
+              composer install --no-dev --optimize-autoloader
+            else
+              echo '⚠️ composer.json not found, skipping composer install'
+            fi &&
             sudo systemctl restart apache2
           "
