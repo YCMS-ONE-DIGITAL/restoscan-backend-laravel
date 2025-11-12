@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\User; // ✅ imported User model
+use App\Models\Menu; // ✅ imported User model
 
 
 class Restaurant extends Model
@@ -26,6 +27,12 @@ class Restaurant extends Model
     {
         return $this->belongsTo(User::class);
     }
+    
+    public function menus()
+{
+    return $this->hasMany(Menu::class);
+}
+
 
     // 🔹 One restaurant has many menu items (future use)
     // public function menuItems()
