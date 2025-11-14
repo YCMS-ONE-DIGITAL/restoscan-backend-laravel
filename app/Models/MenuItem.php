@@ -4,13 +4,18 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Category;
+use App\Models\Restaurant;
 
 class MenuItem extends Model
 {
     //
      use HasFactory;
 
+    // IMPORTANT: Your custom table name
+    protected $table = 'menu_itmes';
+
     protected $fillable = [
+        'restaurant_id',
         'category_id',
         'name',
         'description',
@@ -20,7 +25,7 @@ class MenuItem extends Model
         'is_available',
     ];
 
-    /**
+       /**
      * Each menu item belongs to a category.
      */
     public function category()
@@ -28,32 +33,11 @@ class MenuItem extends Model
         return $this->belongsTo(Category::class);
     }
 
-    /**
-     * Accessor: readable version of the 'type' field.
+      /**
+     * Each menu item belongs to a restaurant.
      */
-    public function getTypeLabelAttribute()
+       public function restaurant()
     {
-        return match ($this->type) {
-            'veg' => 'Veg',
-            'non_veg' => 'Non-Veg',
-            'egg' => 'Egg',
-            default => 'Unknown',
-        };
-    }
-
-    /**
-     * Scope to easily filter available items.
-     */
-    public function scopeAvailable($query)
-    {
-        return $query->where('is_available', true);
-    }
-
-    /**
-     * Scope to filter by food type.
-     */
-    public function scopeType($query, $type)
-    {
-        return $query->where('type', $type);
+        return $this->belongsTo(Restaurant::class);
     }
 }

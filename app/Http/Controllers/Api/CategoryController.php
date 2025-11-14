@@ -63,6 +63,10 @@ class CategoryController extends Controller
     {
         try {
 
+            $validated = $request->validate([
+                'restaurant_id' => 'required|exists:restaurants,id',
+            ]);
+            
             if (!$request->has('restaurant_id')) {
                 return response()->json([
                     'success' => false,
