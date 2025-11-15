@@ -97,7 +97,7 @@ class MenuItemController extends Controller
 
         // Validate only item id
         $validated = $request->validate([
-            'menu_item_id'  => 'required|exists:menu_itmes,id',
+            'menu_item_id'  => 'required|exists:menu_items,id',
         ]);
 
         // Fetch item
@@ -134,7 +134,7 @@ public function update_menu_item(Request $request)
 
         // Validate ID + optional fields
         $validated = $request->validate([
-            'menu_item_id'   => 'required|exists:menu_itmes,id',
+            'menu_item_id'   => 'required|exists:menu_items,id',
             'name'           => 'sometimes|string|max:255',
             'description'    => 'sometimes|string|nullable',
             'price'          => 'sometimes|numeric|min:1',

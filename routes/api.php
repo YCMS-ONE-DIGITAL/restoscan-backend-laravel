@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\RestaurantTablesController;
 use App\Http\Controllers\Api\MenuController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\MenuItemController;
+use App\Http\Controllers\Api\OrdersController;
 
 Route::post('/otp/send', [OtpController::class, 'sendOtp']);
 Route::post('/otp/verify', [OtpController::class, 'verifyOtp']);
@@ -40,7 +41,12 @@ Route::post('/restaurant/seating/update', [RestaurantTablesController::class, 'u
     Route::get('/restaurant/menu/item/fetchall', [MenuItemController::class, 'fetch_menu_items_list']);
     Route::get('/restaurant/menu/item', [MenuItemController::class, 'fetch_menu_item']);
     Route::get('/restaurant/menu/item/update', [MenuItemController::class, 'update_menu_item']);
+Route::post('/order/create', [OrdersController::class, 'createOrderWithItems']);
 
+Route::get('/order/fetch', [OrdersController::class, 'fetchOrder']);
+Route::get('/order/fetchall', [OrdersController::class, 'fetch_all_orders']);
+
+Route::post('/order/update', [OrdersController::class, 'update_order']);
 
 
   

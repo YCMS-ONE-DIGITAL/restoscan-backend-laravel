@@ -16,25 +16,40 @@ class OtpController extends Controller
     // 🔹 Step 1: Send OTP
     public function sendOtp(Request $request)
     {
-        $request->validate([
-            'email' => 'required|email|unique:users,email',
-            'phone_number' => 'required|string|unique:users,phone_number',
-            'name' => 'required|string',
-            'password' => 'required|min:6',
-        ]);
+       $validated = $request->validate([
+        'email' => 'required|email',
+        'phone_number' => 'required|digits_between:10,12',
+        'name' => 'required|string|min:2|max:50',
+        'password' => 'required|string|min:6|max:50',
+    ]);
+
+    // Check if user already exists
+    if (User::where('email', $request->email)->exists()) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Email already registered. Please login.'
+        ], 409);
+    }
+
+    if (User::where('phone_number', $request->phone_number)->exists()) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Phone number already registered.'
+        ], 409);
+    }
 
         $email = $request->email;
         $otp = rand(100000, 999999);
 
-        // 💾 Save OTP
-        Otp::updateOrCreate(
-            ['email' => $email],
-            [
-                'otp' => $otp,
-                'expires_at' => Carbon::now()->addMinutes(10),
-                'is_used' => false,
-            ]
-        );
+         // Save OTP
+    Otp::updateOrCreate(
+        ['email' => $request->email],
+        [
+            'otp' => $otp,
+            'expires_at' => now()->addMinutes(10),
+            'is_used' => false,
+        ]
+    );
 
         // 🎨 Email Template
         $year = date('Y');
@@ -71,46 +86,61 @@ class OtpController extends Controller
     }
 
     // 🔹 Step 2: Verify OTP and Create User
-    public function verifyOtp(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email',
-            'otp' => 'required|digits:6',
-            'name' => 'required|string',
-            'phone_number' => 'required|string',
-            'password' => 'required|string|min:6',
-        ]);
+   public function verifyOtp(Request $request)
+{
+    $validated = $request->validate([
+        'email' => 'required|email',
+        'otp' => 'required|digits:6',
+        'name' => 'required|string|min:2|max:50',
+        'phone_number' => 'required|digits_between:10,12',
+        'password' => 'required|string|min:6|max:50',
+    ]);
 
-        // Find OTP record
-        $otpRecord = Otp::where('email', $request->email)
-                        ->where('otp', $request->otp)
-                        ->where('is_used', false)
-                        ->latest()
-                        ->first();
-
-        if (!$otpRecord) {
-            return response()->json(['status' => 'error', 'message' => 'Invalid OTP'], 400);
-        }
-
-        if ($otpRecord->isExpired()) {
-            return response()->json(['status' => 'error', 'message' => 'OTP expired'], 400);
-        }
-
-        // ✅ Mark OTP used
-        $otpRecord->update(['is_used' => true]);
-
-        // ✅ Create user
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'phone_number' => $request->phone_number,
-            'password' => Hash::make($request->password),
-        ]);
-
+    // Check if user already registered
+    if (User::where('email', $request->email)->exists()) {
         return response()->json([
-            'status' => 'success',
-            'message' => 'User registered successfully!',
-            'user' => $user
-        ]);
+            'status' => 'error',
+            'message' => 'User already registered.'
+        ], 409);
     }
+
+    // Get OTP
+    $otpRecord = Otp::where('email', $request->email)
+        ->where('otp', $request->otp)
+        ->where('is_used', false)
+        ->latest()
+        ->first();
+
+    if (!$otpRecord) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Invalid OTP'
+        ], 400);
+    }
+
+    if ($otpRecord->expires_at < now()) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'OTP expired'
+        ], 400);
+    }
+
+    // Mark OTP used
+    $otpRecord->update(['is_used' => true]);
+
+    // Create user
+    $user = User::create([
+        'name' => $request->name,
+        'email' => $request->email,
+        'phone_number' => $request->phone_number,
+        'password' => Hash::make($request->password),
+    ]);
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'User registered successfully',
+        'user' => $user
+    ]);
+}
+
 }

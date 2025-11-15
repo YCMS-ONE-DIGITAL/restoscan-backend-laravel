@@ -11,12 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('menu_itmes', function (Blueprint $table) {
+        Schema::create('menu_items', function (Blueprint $table) {
             $table->id();
     $table->foreignId('category_id')
           ->constrained('categories')
           ->onDelete('cascade');
-          
+    $table->foreignId('restaurant_id')
+                  ->constrained('restaurants')
+                  ->onDelete('cascade');
     $table->string('name'); // Dish name
     $table->text('description')->nullable();
     $table->decimal('price', 8, 2);

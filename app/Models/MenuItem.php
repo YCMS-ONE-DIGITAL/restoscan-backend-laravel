@@ -12,7 +12,7 @@ class MenuItem extends Model
      use HasFactory;
 
     // IMPORTANT: Your custom table name
-    protected $table = 'menu_itmes';
+    protected $table = 'menu_items';
 
     protected $fillable = [
         'restaurant_id',
