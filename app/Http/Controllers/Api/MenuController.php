@@ -8,130 +8,125 @@ use Illuminate\Http\Request;
 
 class MenuController extends Controller
 {
+    private function getRestaurantId(Request $request)
+    {
+        $user = $request->get('auth_user');
+
+        // user ला restaurant नसेल तर null
+        if (!$user || !$user->restaurant) {
+            return null;
+        }
+
+        return $user->restaurant->id;
+    }
+
     /**
-     * Display a listing of menus.
-     * (Optionally filter by restaurant_id)
+     * List menus
      */
     public function index(Request $request)
     {
-        $query = Menu::with('restaurant', 'categories.items');
+        $restaurantId = $this->getRestaurantId($request);
 
-        // Filter by restaurant_id if present
-        if ($request->has('restaurant_id')) {
-            $query->where('restaurant_id', $request->get('restaurant_id'));
+        if (!$restaurantId) {
+            return response()->json(['message' => 'Restaurant not found'], 404);
         }
 
-        $menus = $query->latest()->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $menus,
-        ]);
+        return Menu::where('restaurant_id', $restaurantId)
+                   ->orderBy('id', 'DESC')
+                   ->get();
     }
 
     /**
-     * Store a new menu.
+     * Create menu
      */
     public function store(Request $request)
     {
+        $restaurantId = $this->getRestaurantId($request);
+
+        if (!$restaurantId) {
+            return response()->json(['message' => 'Restaurant not found'], 404);
+        }
+
         $validated = $request->validate([
-            'restaurant_id' => 'required|exists:restaurants,id',
             'name' => 'required|string|max:255',
         ]);
 
-        $menu = Menu::create($validated);
+        $menu = Menu::create([
+            'restaurant_id' => $restaurantId,
+            'name' => $validated['name'],
+        ]);
 
         return response()->json([
-            'success' => true,
-            'message' => 'Menu created successfully.',
-            'data' => $menu,
+            'message' => 'Menu created successfully',
+            'menu' => $menu,
         ]);
     }
 
     /**
-     * Show a single menu with categories & items.
+     * Show single menu
      */
-   /**
- * Display a single menu using query parameter (?menu_id=)
- */
-public function show(Request $request)
-{
-    $menuId = $request->query('menu_id');
+    public function show(Request $request, $id)
+    {
+        $restaurantId = $this->getRestaurantId($request);
 
-    if (!$menuId) {
-        return response()->json([
-            'success' => false,
-            'message' => 'menu_id is required in query parameters (e.g. ?menu_id=1)',
-        ], 400);
+        $menu = Menu::where('id', $id)
+                    ->where('restaurant_id', $restaurantId)
+                    ->first();
+
+        if (!$menu) {
+            return response()->json(['message' => 'Menu not found'], 404);
+        }
+
+        return response()->json($menu);
     }
-
-    $menu = Menu::with('restaurant', 'categories.items')->find($menuId);
-
-    if (!$menu) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Menu not found.',
-        ], 404);
-    }
-
-    return response()->json([
-        'success' => true,
-        'data' => $menu,
-    ]);
-}
-
 
     /**
-     * Update a menu.
+     * Update menu
      */
-   /**
- * Update a menu using ?menu_id=
- */
-public function update(Request $request)
+    public function update(Request $request, $id)
 {
-    $menuId = $request->query('menu_id');
+    $restaurantId = $this->getRestaurantId($request);
 
-    if (!$menuId) {
-        return response()->json([
-            'success' => false,
-            'message' => 'menu_id is required in query parameters (e.g. ?menu_id=1)',
-        ], 400);
-    }
-
-    $menu = Menu::find($menuId);
+    $menu = Menu::where('id', $id)
+                ->where('restaurant_id', $restaurantId)
+                ->first();
 
     if (!$menu) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Menu not found.',
-        ], 404);
+        return response()->json(['message' => 'Menu not found'], 404);
     }
 
     $validated = $request->validate([
-        'restaurant_id' => 'sometimes|exists:restaurants,id',
-        'name' => 'sometimes|string|max:255',
+        'name' => 'required|string|max:255',
     ]);
 
     $menu->update($validated);
 
     return response()->json([
-        'success' => true,
-        'message' => 'Menu updated successfully.',
-        'data' => $menu,
+        'message' => 'Menu updated successfully',
+        'menu' => $menu
     ]);
 }
 
+
     /**
-     * Delete a menu.
+     * Delete menu
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
-        $menu = Menu::findOrFail($id);
+        $restaurantId = $this->getRestaurantId($request);
+
+        $menu = Menu::where('id', $id)
+                    ->where('restaurant_id', $restaurantId)
+                    ->first();
+
+        if (!$menu) {
+            return response()->json(['message' => 'Menu not found'], 404);
+        }
+
         $menu->delete();
 
         return response()->json([
-            'success' => true,
-            'message' => 'Menu deleted successfully.',
+            'message' => 'Menu deleted successfully'
         ]);
     }
 }

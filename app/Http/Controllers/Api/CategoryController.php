@@ -5,154 +5,106 @@ namespace App\Http\Controllers\Api;
 use Illuminate\Http\Request;
 use App\Models\Category;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\ValidationException;
 
 class CategoryController extends Controller
 {
+    private function getRestaurantId(Request $request)
+    {
+        $user = $request->get('auth_user');
+
+        if (!$user || !$user->restaurant) {
+            return null;
+        }
+
+        return $user->restaurant->id;
+    }
+
     /**
-     * Create a category for a restaurant (with try catch)
+     * Create category
      */
     public function store(Request $request)
     {
-        try {
+        $restaurantId = $this->getRestaurantId($request);
 
-            // Validation
-            $validated = $request->validate([
-                'restaurant_id' => 'required|exists:restaurants,id',
-                'name' => 'required|string|max:255',
-            ]);
-
-            // Create category
-            $category = Category::create($validated);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Category created successfully.',
-                'data' => $category,
-            ], 200);
-
-        } catch (ValidationException $e) {
-
-            // Validation errors
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed.',
-                'errors' => $e->errors(),
-            ], 422);
-
-        } catch (\Exception $e) {
-
-            // Log error
-            Log::error("Category create error: " . $e->getMessage());
-
-            // Unexpected Server Error
-            return response()->json([
-                'success' => false,
-                'message' => 'Something went wrong while creating category.',
-                'error' => $e->getMessage(), // debug use
-            ], 500);
+        if (!$restaurantId) {
+            return response()->json(['message' => 'Restaurant not found'], 404);
         }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
+
+        $category = Category::create([
+            'restaurant_id' => $restaurantId,
+            'name' => $validated['name'],
+        ]);
+
+        return response()->json([
+            'message' => 'Category created successfully',
+            'category' => $category
+        ]);
     }
 
-
     /**
-     * Get all categories by restaurant_id
+     * Fetch all categories of logged-in restaurant
      */
     public function index(Request $request)
     {
-        try {
+        $restaurantId = $this->getRestaurantId($request);
 
-            $validated = $request->validate([
-                'restaurant_id' => 'required|exists:restaurants,id',
-            ]);
-            
-            if (!$request->has('restaurant_id')) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'restaurant_id is required (e.g. ?restaurant_id=1)',
-                ], 400);
-            }
-
-            $categories = Category::where('restaurant_id', $request->restaurant_id)
-                                //   ->with('items')
-                                  ->get();
-
-            return response()->json([
-                'success' => true,
-                'data' => $categories,
-            ]);
-
-        } catch (\Exception $e) {
-
-            Log::error("Category fetch error: " . $e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Unable to fetch categories.',
-                'error' => $e->getMessage(),
-            ], 500);
+        if (!$restaurantId) {
+            return response()->json(['message' => 'Restaurant not found'], 404);
         }
+
+        $categories = Category::where('restaurant_id', $restaurantId)->get();
+
+        return response()->json($categories);
     }
 
-
     /**
- * Update a category using ?category_id=
- */
-public function update(Request $request)
-{
-    try {
+     * Update category
+     */
+    public function update(Request $request, $id)
+    {
+        $restaurantId = $this->getRestaurantId($request);
 
-        // Check if category_id is given in query
-        $categoryId = $request->query('category_id');
-        
-        if (!$categoryId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'category_id is required in query (e.g. ?category_id=5)',
-            ], 400);
-        }
-
-        // Find Category
-        $category = Category::find($categoryId);
+        $category = Category::where('id', $id)
+                            ->where('restaurant_id', $restaurantId)
+                            ->first();
 
         if (!$category) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Category not found.',
-            ], 404);
+            return response()->json(['message' => 'Category not found'], 404);
         }
 
-        // Validate incoming fields
         $validated = $request->validate([
-            'restaurant_id' => 'sometimes|exists:restaurants,id',
-            'name' => 'sometimes|string|max:255',
+            'name' => 'required|string|max:255',
         ]);
 
-        // Update data
         $category->update($validated);
 
         return response()->json([
-            'success' => true,
-            'message' => 'Category updated successfully.',
-            'data' => $category,
-        ], 200);
-
-    } catch (ValidationException $e) {
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Validation failed.',
-            'errors' => $e->errors(),
-        ], 422);
-
-    } catch (\Exception $e) {
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Something went wrong while updating category.',
-            'error' => $e->getMessage(),
-        ], 500);
+            'message' => 'Category updated successfully',
+            'category' => $category
+        ]);
     }
-}
+
+    /**
+     * Delete category
+     */
+    public function destroy(Request $request, $id)
+    {
+        $restaurantId = $this->getRestaurantId($request);
+
+        $category = Category::where('id', $id)
+                            ->where('restaurant_id', $restaurantId)
+                            ->first();
+
+        if (!$category) {
+            return response()->json(['message' => 'Category not found'], 404);
+        }
+
+        $category->delete();
+
+        return response()->json(['message' => 'Category deleted successfully']);
+    }
 }

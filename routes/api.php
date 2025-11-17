@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\MenuItemController;
 use App\Http\Controllers\Api\OrdersController;
 
+
+
 Route::post('/otp/send', [OtpController::class, 'sendOtp']);
 Route::post('/otp/verify', [OtpController::class, 'verifyOtp']);
 Route::post('/user/login', [LoginController::class, 'login']);
@@ -20,11 +22,14 @@ Route::middleware('auth.token')->group(function () {
     Route::get('/restaurant', [RestaurantController::class, 'show']);
     Route::post('/restaurant/update', [RestaurantController::class, 'update']);
         // restaurant menu api
-    Route::post('/restaurant/menu/add', [MenuController::class, 'store']);
-  
-    Route::post('/restaurant/menu/update', [MenuController::class, 'update']); // Update menu (using ?menu_id)
-    Route::get('/restaurant/menus', [MenuController::class,'index']);   // list all
-Route::get('/restaurant/menu', [MenuController::class,'show']);    // show one using ?menu_id=
+ // Menus CRUD
+Route::get('/restaurant/menus', [MenuController::class, 'index']);
+Route::post('/restaurant/menus', [MenuController::class, 'store']);
+Route::get('/restaurant/menus/{id}', [MenuController::class, 'show']);
+Route::post('/restaurant/menus/update/{id}', [MenuController::class, 'update']);
+Route::delete('/restaurant/menus/{id}', [MenuController::class, 'destroy']);
+
+
     // restaurant categories api 
 
  Route::post('/restaurant/category/add', [CategoryController::class, 'store']);

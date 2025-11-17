@@ -86,7 +86,7 @@ class OtpController extends Controller
     }
 
     // 🔹 Step 2: Verify OTP and Create User
-   public function verifyOtp(Request $request)
+  public function verifyOtp(Request $request)
 {
     $validated = $request->validate([
         'email' => 'required|email',
@@ -96,7 +96,7 @@ class OtpController extends Controller
         'password' => 'required|string|min:6|max:50',
     ]);
 
-    // Check if user already registered
+    // User exists?
     if (User::where('email', $request->email)->exists()) {
         return response()->json([
             'status' => 'error',
@@ -104,7 +104,7 @@ class OtpController extends Controller
         ], 409);
     }
 
-    // Get OTP
+    // Get OTP record
     $otpRecord = Otp::where('email', $request->email)
         ->where('otp', $request->otp)
         ->where('is_used', false)
@@ -136,11 +136,29 @@ class OtpController extends Controller
         'password' => Hash::make($request->password),
     ]);
 
-    return response()->json([
-        'status' => 'success',
-        'message' => 'User registered successfully',
-        'user' => $user
-    ]);
+    // 🔥 AUTO LOGIN TOKEN
+    $token = base64_encode(str()->random(60));
+    $user->remember_token = $token;
+    $user->save();
+
+    // Return response WITH secure cookie
+    return response()
+        ->json([
+            'status' => 'success',
+            'message' => 'User registered successfully',
+            'user' => $user
+        ])
+        ->cookie(
+            'auth_token',
+            $token,
+            60 * 24 * 7,   // 7 days
+            '/',
+            null,
+            true,          // secure
+            true,          // HttpOnly
+            false,
+            'Strict'
+        );
 }
 
 }
