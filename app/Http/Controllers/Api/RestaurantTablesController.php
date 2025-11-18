@@ -9,36 +9,73 @@ use Illuminate\Validation\ValidationException;
 
 class RestaurantTablesController extends Controller
 {
-    //
-    // Add seating table
+    private function getRestaurantId(Request $request)
+    {
+        $user = $request->get('auth_user');
+
+        if (!$user || !$user->restaurant) {
+            return null;
+        }
+
+        return $user->restaurant->id;
+    }
+
+    // ---------------------- ADD Table ----------------------
     public function store(Request $request)
     {
         try {
 
+            $restaurantId = $this->getRestaurantId($request);
+
+            if (!$restaurantId) {
+                return response()->json(['message' => 'Restaurant not found'], 404);
+            }
+
             $validated = $request->validate([
-                'restaurant_id' => 'required|exists:restaurants,id',
                 'table_no' => 'required|string|max:50',
                 'seating_number' => 'required|integer|min:1',
             ]);
 
-            $seating = Restaurant_table::create($validated);
+            $seating = Restaurant_table::create([
+                'restaurant_id' => $restaurantId,
+                'table_no' => $validated['table_no'],
+                'seating_number' => $validated['seating_number'],
+            ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Seating table created successfully.',
+                'message' => 'Table added successfully.',
                 'data' => $seating,
             ]);
 
         } catch (ValidationException $e) {
-
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed.',
                 'errors' => $e->errors(),
             ], 422);
+        }
+    }
+
+    // ---------------------- LIST Tables ----------------------
+    public function index(Request $request)
+    {
+        try {
+
+            $restaurantId = $this->getRestaurantId($request);
+
+            if (!$restaurantId) {
+                return response()->json(['message' => 'Restaurant not found'], 404);
+            }
+
+            $tables = Restaurant_table::where('restaurant_id', $restaurantId)->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $tables,
+            ]);
 
         } catch (\Exception $e) {
-
             return response()->json([
                 'success' => false,
                 'message' => 'Something went wrong.',
@@ -47,128 +84,64 @@ class RestaurantTablesController extends Controller
         }
     }
 
+    // ---------------------- UPDATE Table ----------------------
+    public function update(Request $request)
+    {
+        try {
+            $restaurantId = $this->getRestaurantId($request);
 
-    // List tables by restaurant
-   public function index(Request $request)
-{
-    
-    try {
+            if (!$restaurantId) {
+                return response()->json(['message' => 'Restaurant not found'], 404);
+            }
 
-        $validated = $request->validate([
-            'restaurant_id' => 'required|exists:restaurants,id',
-        ]);
+            $validated = $request->validate([
+                'table_id' => 'required|exists:restaurant_tables,id',
+                'table_no' => "sometimes|string|max:50",
+                'seating_number' => "sometimes|integer|min:1",
+            ]);
 
-        $tables = Restaurant_table::where('restaurant_id', $validated['restaurant_id'])->get();
+            $table = Restaurant_table::where('id', $validated['table_id'])
+                ->where('restaurant_id', $restaurantId)
+                ->first();
 
-        return response()->json([
-            'success' => true,
-            'data' => $tables,
-        ]);
+            if (!$table) {
+                return response()->json(['message' => 'Table not found'], 404);
+            }
 
-    } catch (ValidationException $e) {
+            $updateData = $validated;
+            unset($updateData['table_id']);
 
-        return response()->json([
-            'success' => false,
-            'message' => 'Validation failed.',
-            'errors' => $e->errors(),
+            $table->update($updateData);
 
-        ], 422);
+            return response()->json([
+                'success' => true,
+                'message' => 'Table updated successfully.',
+                'data' => $table,
+            ]);
 
-    } catch (\Exception $e) {
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Something went wrong.',
-            'error' => $e->getMessage(),
-        ], 500);
-    }
-}
-
-
-
-   public function show(Request $request)
-{
-    try {
-
-        // Validate table_id
-        $validated = $request->validate([
-            'table_id' => 'required|exists:restaurant_tables,id',
-        ]);
-
-        // Fetch one table
-        $table = Restaurant_table::find($validated['table_id']);
-
-        return response()->json([
-            'success' => true,
-            'data' => $table,
-        ]);
-
-    } catch (ValidationException $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Validation failed.',
-            'errors' => $e->errors(),
-            'received' => $request->all(),
-        ], 422);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Something went wrong.',
-            'error' => $e->getMessage(),
-        ], 500);
-    }
-}
-
-// update only one table
-public function update(Request $request){
-    try {
-        
-        $validated = $request->validate([
-            'table_id' => 'required|exists:restaurant_tables,id',
-            'table_no' => "sometimes|string|max:50",
-            'seating_number' => "sometimes|string|min:1",
-        ]);
-
-           // Fetch the table
-        $table = Restaurant_table::find($validated['table_id']);
-
-        if (!$table) {
+        } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Table not found.',
-            ], 404);
+                'message' => 'Validation failed.',
+                'errors' => $e->errors(),
+            ], 422);
         }
-
-          // Update allowed fields
-        $table->update($validated);
-
-          return response()->json([
-            'success' => true,
-            'message' => 'Table updated successfully.',
-            'data' => $table,
-        ]);
-
-    } catch (ValidationException $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Validation failed.',
-            'errors' => $e->errors(),
-            'received' => $request->all(),
-        ], 422);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Something went wrong.',
-            'error' => $e->getMessage(),
-        ], 500);
     }
 
+    public function destroy(Request $request, $id)
+    {
+        $restaurantId = $this->getRestaurantId($request);
 
-    
-}
+        $category = Restaurant_table::where('id', $id)
+                            ->where('restaurant_id', $restaurantId)
+                            ->first();
 
+        if (!$category) {
+            return response()->json(['message' => 'Table not found'], 404);
+        }
 
+        $category->delete();
 
+        return response()->json(['message' => 'Table deleted successfully']);
+    }
 }

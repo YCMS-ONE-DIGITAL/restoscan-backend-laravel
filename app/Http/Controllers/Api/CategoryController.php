@@ -30,13 +30,14 @@ class CategoryController extends Controller
             return response()->json(['message' => 'Restaurant not found'], 404);
         }
 
+        // Both JSON + FormData support
         $validated = $request->validate([
             'name' => 'required|string|max:255',
         ]);
 
         $category = Category::create([
             'restaurant_id' => $restaurantId,
-            'name' => $validated['name'],
+            'name' => $request->input('name'),  // hybrid support
         ]);
 
         return response()->json([
@@ -46,7 +47,7 @@ class CategoryController extends Controller
     }
 
     /**
-     * Fetch all categories of logged-in restaurant
+     * Fetch all categories
      */
     public function index(Request $request)
     {
@@ -76,11 +77,14 @@ class CategoryController extends Controller
             return response()->json(['message' => 'Category not found'], 404);
         }
 
-        $validated = $request->validate([
+        // Validation works for JSON + form-data both
+        $request->validate([
             'name' => 'required|string|max:255',
         ]);
 
-        $category->update($validated);
+        // Hybrid update → works for both form-data + JSON
+        $category->name = $request->input('name');
+        $category->save();
 
         return response()->json([
             'message' => 'Category updated successfully',

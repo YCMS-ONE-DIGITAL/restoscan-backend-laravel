@@ -4,181 +4,155 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\MenuItem;
-use App\Models\Restaurant_table;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 
 class MenuItemController extends Controller
 {
-    /**
-     * Add a new menu item
-     */
-   public function store(Request $request)
-{
-    try {
+    private function getRestaurantId(Request $request)
+    {
+        $user = $request->get('auth_user');
 
-        $validated = $request->validate([
-            'restaurant_id' => 'required|exists:restaurants,id',
-            'category_id'    => 'required|exists:categories,id',
-            'name'           => 'required|string|max:255',
-            'description'    => 'nullable|string',
-            'price'          => 'required|numeric|min:1',
-            'type'           => 'required|in:veg,non_veg,egg',
-            'image'          => 'nullable|string',
-            'is_available'   => 'boolean',
-        ]);
-        
+        if (!$user || !$user->restaurant) {
+            return null;
+        }
 
-        $item = MenuItem::create($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Menu item created successfully.',
-            'data' => $item,
-        ]);
-
-    } catch (ValidationException $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Validation failed.',
-            'errors' => $e->errors(),
-        ], 422);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Something went wrong.',
-            'error' => $e->getMessage(),
-        ], 500);
+        return $user->restaurant->id;
     }
+
+    /**
+     * Add new menu item (Veg, Nonveg, Egg etc)
+     */
+    public function store(Request $request)
+{
+    $restaurantId = $this->getRestaurantId($request);
+
+    $validated = $request->validate([
+        'menu_id'      => 'required|exists:menus,id',
+        'category_id'  => 'required|exists:categories,id',
+        'name'         => 'required|string|max:255',
+        'description'  => 'nullable|string',
+        'price'        => 'required|numeric|min:1',
+        'type'         => 'required|in:veg,non_veg,egg',
+        'image'        => 'nullable|string',
+        'is_available' => 'boolean',
+    ]);
+
+    $validated['restaurant_id'] = $restaurantId;
+
+    $item = MenuItem::create($validated);
+
+    return response()->json([
+        'message' => 'Menu item created successfully',
+        'item' => $item
+    ]);
 }
 
-// fetch menu items by categories 
-   public function fetch_menu_items_list(Request $request)
-{
-    try {
 
-        // Validate only restaurant and category
+public function fetch_all_items(Request $request)
+{
+    $restaurantId = $this->getRestaurantId($request);
+
+    if (!$restaurantId) {
+        return response()->json(['success' => false, 'message' => 'Restaurant not found'], 404);
+    }
+
+    $items = MenuItem::where('restaurant_id', $restaurantId)->get();
+
+    return response()->json([
+        'success' => true,
+        'data' => $items
+    ]);
+}
+
+
+    /**
+     * List items by category
+     */
+    public function fetch_menu_items_list(Request $request)
+    {
+        $restaurantId = $this->getRestaurantId($request);
+
+        if (!$restaurantId) {
+            return response()->json(['message' => 'Restaurant not found'], 404);
+        }
+
         $validated = $request->validate([
-            'restaurant_id' => 'required|exists:restaurants,id',
-            'category_id'  => 'required|exists:categories,id',
+            'category_id' => 'required|exists:categories,id',
         ]);
 
-        // Fetch items
-        $items = MenuItem::where('restaurant_id', $validated['restaurant_id'])
+        $items = MenuItem::where('restaurant_id', $restaurantId)
                          ->where('category_id', $validated['category_id'])
                          ->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => $items,
-        ]);
-
-    } catch (ValidationException $e) {
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Validation failed.',
-            'errors' => $e->errors(),
-        ], 422);
-
-    } catch (\Exception $e) {
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Something went wrong.',
-            'error' => $e->getMessage(),
-        ], 500);
+        return response()->json($items);
     }
-}
-  public function fetch_menu_item(Request $request)
+
+    /**
+     * Get one menu item
+     */
+    public function fetch_menu_item(Request $request, $id)
+    {
+        $restaurantId = $this->getRestaurantId($request);
+
+        $item = MenuItem::where('id', $id)
+                        ->where('restaurant_id', $restaurantId)
+                        ->first();
+
+        if (!$item) {
+            return response()->json(['message' => 'Menu item not found'], 404);
+        }
+
+        return response()->json($item);
+    }
+
+    /**
+     * Update Menu Item
+     */
+    public function update_menu_item(Request $request, $id)
 {
-    try {
+    $restaurantId = $this->getRestaurantId($request);
 
-        // Validate only item id
-        $validated = $request->validate([
-            'menu_item_id'  => 'required|exists:menu_items,id',
-        ]);
+    $item = MenuItem::where('id', $id)
+                    ->where('restaurant_id', $restaurantId)
+                    ->first();
 
-        // Fetch item
-        $item = MenuItem::find($validated['menu_item_id']);
+    $validated = $request->validate([
+        'menu_id'      => 'sometimes|exists:menus,id',
+        'category_id'  => 'sometimes|exists:categories,id',
+        'name'         => 'sometimes|string|max:255',
+        'description'  => 'sometimes|string|nullable',
+        'price'        => 'sometimes|numeric|min:1',
+        'type'         => 'sometimes|in:veg,non_veg,egg',
+        'image'        => 'sometimes|string|nullable',
+        'is_available' => 'sometimes|boolean',
+    ]);
 
-        return response()->json([
-            'success' => true,
-            'data' => $item,
-        ]);
+    $item->update($validated);
 
-    } catch (ValidationException $e) {
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Validation failed.',
-            'errors' => $e->errors(),
-        ], 422);
-
-    } catch (\Exception $e) {
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Something went wrong.',
-            'error' => $e->getMessage(),
-        ], 500);
-    }
+    return response()->json([
+        'message' => 'Menu item updated successfully',
+        'item' => $item
+    ]);
 }
 
 
+    /**
+     * Delete a menu item
+     */
+    public function destroy(Request $request, $id)
+    {
+        $restaurantId = $this->getRestaurantId($request);
 
-public function update_menu_item(Request $request)
-{
-    try {
+        $item = MenuItem::where('id', $id)
+                        ->where('restaurant_id', $restaurantId)
+                        ->first();
 
-        // Validate ID + optional fields
-        $validated = $request->validate([
-            'menu_item_id'   => 'required|exists:menu_items,id',
-            'name'           => 'sometimes|string|max:255',
-            'description'    => 'sometimes|string|nullable',
-            'price'          => 'sometimes|numeric|min:1',
-            'type'           => 'sometimes|in:veg,non_veg,egg',
-            'image'          => 'sometimes|string|nullable',
-            'is_available'   => 'sometimes|boolean',
-        ]);
+        if (!$item) {
+            return response()->json(['message' => 'Menu item not found'], 404);
+        }
 
-        // Fetch the item
-        $item = MenuItem::find($validated['menu_item_id']);
+        $item->delete();
 
-        // Remove ID from update array
-        unset($validated['menu_item_id']);
-
-        // Update item
-        $item->update($validated);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Menu item updated successfully.',
-            'data' => $item,
-        ]);
-
-    } catch (ValidationException $e) {
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Validation failed.',
-            'errors' => $e->errors()
-        ], 422);
-
-    } catch (\Exception $e) {
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Something went wrong.',
-            'error' => $e->getMessage()
-        ], 500);
+        return response()->json(['message' => 'Menu item deleted successfully']);
     }
-}
-
-
-
-
-
-
 }

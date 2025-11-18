@@ -8,113 +8,119 @@ use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\OrderItem;
 
-
 class OrdersController extends Controller
 {
-    //
+    private function getRestaurantId(Request $request)
+    {
+        $user = $request->get('auth_user');
+
+        if (!$user || !$user->restaurant) {
+            return null;
+        }
+
+        return $user->restaurant->id;
+    }
+
+    /**
+     * Create Order with Items
+     */
     public function createOrderWithItems(Request $request)
-{
-    try {
+    {
+
+        $restaurantId = $this->getRestaurantId($request);
+
+        if (!$restaurantId) {
+            return response()->json(['message' => 'Restaurant not found'], 404);
+        }
 
         $validated = $request->validate([
-            'restaurant_id' => 'required|exists:restaurants,id',
             'table_id' => 'required|exists:restaurant_tables,id',
-            'items' => 'required|array|min:1',
+            'items'    => 'required|array|min:1',
             'items.*.menu_item_id' => 'required|exists:menu_items,id',
-            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.quantity'     => 'required|integer|min:1',
         ]);
 
-        // Step 1: Create Order First
+        // Create order
         $order = Order::create([
-            'restaurant_id' => $validated['restaurant_id'],
-            'table_id' => $validated['table_id'],
-            'status' => 'pending',
-            'total_amount' => 0,
+            'restaurant_id' => $restaurantId,
+            'table_id'      => $validated['table_id'],
+            'status'        => 'pending',
+            'total_amount'  => 0,
         ]);
 
         $total = 0;
 
-        // Step 2: Insert multiple items
         foreach ($validated['items'] as $itemData) {
-
             $menu = MenuItem::find($itemData['menu_item_id']);
-            $price = $menu->price;
-            $qty = $itemData['quantity'];
-            $lineTotal = $price * $qty;
+
+            $lineTotal = $menu->price * $itemData['quantity'];
 
             OrderItem::create([
-                'order_id' => $order->id,
-                'menu_item_id' => $itemData['menu_item_id'],
-                'quantity' => $qty,
-                'price' => $price,
-                'total' => $lineTotal,
+                'order_id'     => $order->id,
+                'menu_item_id' => $menu->id,
+                'quantity'     => $itemData['quantity'],
+                'price'        => $menu->price,
+                'total'        => $lineTotal,
             ]);
 
             $total += $lineTotal;
         }
 
-        // Step 3: Update order total
         $order->update(['total_amount' => $total]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Order created with items',
-            'order' => $order,
-            'total' => $total,
+            'message' => 'Order created successfully',
+            'order'   => $order,
+            'total'   => $total,
+        ]);
+    }
+
+    /**
+     * Fetch single order
+     */
+    public function fetchOrder(Request $request)
+    {
+        $validated = $request->validate([
+            'order_id' => 'required|exists:orders,id'
         ]);
 
-    } catch (\Exception $e) {
+        $order = Order::with(['items.menuItem', 'table'])
+                      ->find($validated['order_id']);
+
         return response()->json([
-            'success' => false,
-            'message' => 'Something went wrong.',
-            'error' => $e->getMessage(),
-        ], 500);
+            'success' => true,
+            'data'    => $order
+        ]);
     }
-}
 
+    /**
+     * Fetch all orders for restaurant
+     */
+    public function fetch_all_orders(Request $request)
+    {
+        $restaurantId = $this->getRestaurantId($request);
 
-public function fetchOrder(Request $request)
-{
-    $validated = $request->validate([
-        'order_id' => 'required|exists:orders,id'
-    ]);
+        if (!$restaurantId) {
+            return response()->json(['message' => 'Restaurant not found'], 404);
+        }
 
-    $order = Order::with([
-        'items.menuItem',
-        'table'
-    ])
-    ->where('id', $validated['order_id'])
-    ->first();
+        $orders = Order::with('table')
+                       ->where('restaurant_id', $restaurantId)
+                       ->orderBy('id', 'desc')
+                       ->get();
 
-    return response()->json([
-        'success' => true,
-        'data' => $order
-    ]);
-}
+        return response()->json([
+            'success' => true,
+            'data'    => $orders
+        ]);
+    }
 
-public function fetch_all_orders(Request $request)
-{
-    $validated = $request->validate([
-        'restaurant_id' => 'required|exists:restaurants,id'
-    ]);
-
-    $orders = Order::with([
-        'table'
-    ])
-    ->where('restaurant_id', $validated['restaurant_id'])
-    ->orderBy('id', 'desc')
-    ->get();
-
-    return response()->json([
-        'success' => true,
-        'data' => $orders
-    ]);
-}
-
-public function update_order(Request $request)
-{
-    try {
-
+    /**
+     * Update Order
+     */
+    public function update_order(Request $request)
+    {
         $validated = $request->validate([
             'order_id' => 'required|exists:orders,id',
             'status' => 'nullable|in:pending,preparing,served,completed,cancelled',
@@ -124,7 +130,6 @@ public function update_order(Request $request)
 
         $order = Order::find($validated['order_id']);
 
-        // Update values ONLY if provided
         if ($request->filled('status')) {
             $order->status = $request->status;
         }
@@ -142,20 +147,7 @@ public function update_order(Request $request)
         return response()->json([
             'success' => true,
             'message' => 'Order updated successfully',
-            'data' => $order
+            'data'    => $order
         ]);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Update failed',
-            'error' => $e->getMessage()
-        ], 500);
     }
-}
-
-
-
-
-
 }

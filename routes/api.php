@@ -34,24 +34,37 @@ Route::delete('/restaurant/menus/{id}', [MenuController::class, 'destroy']);
 
  Route::post('/restaurant/category/add', [CategoryController::class, 'store']);
     Route::get('/restaurant/categories', [CategoryController::class, 'index']);
-    Route::post('/restaurant/category/update', [CategoryController::class, 'update']);
+    Route::post('/restaurant/category/update/{id}', [CategoryController::class, 'update']);
     // restaurant table api 
-    Route::post('/restaurant/seating/add', [RestaurantTablesController::class, 'store']);
-Route::get('/restaurant/seating', [RestaurantTablesController::class, 'index']);
-Route::get('/restaurant/seating', [RestaurantTablesController::class, 'show']);
-Route::post('/restaurant/seating/update', [RestaurantTablesController::class, 'update']);
+   // Add new seating table
+Route::post('/restaurant/table/add', [RestaurantTablesController::class, 'store']);
+
+// Fetch all tables (list)
+Route::get('/restaurant/table/list', [RestaurantTablesController::class, 'index']);
+
+// Fetch one table
+Route::get('/restaurant/table/details', [RestaurantTablesController::class, 'show']);
+
+// Update table
+Route::post('/restaurant/table/update', [RestaurantTablesController::class, 'update']);
+Route::delete('/restaurant/table/delete/{id}', [RestaurantTablesController::class, 'destroy']);
+
 
 // restaurant menuitems api
+     // Menu Items CRUD
     Route::post('/restaurant/menu/item/add', [MenuItemController::class, 'store']);
-    Route::get('/restaurant/menu/item/fetchall', [MenuItemController::class, 'fetch_menu_items_list']);
-    Route::get('/restaurant/menu/item', [MenuItemController::class, 'fetch_menu_item']);
-    Route::get('/restaurant/menu/item/update', [MenuItemController::class, 'update_menu_item']);
-Route::post('/order/create', [OrdersController::class, 'createOrderWithItems']);
+    Route::get('/restaurant/menu/item/list', [MenuItemController::class, 'fetch_menu_items_list']);
+    Route::get('/restaurant/menu/item/{id}', [MenuItemController::class, 'fetch_menu_item']);
+    Route::post('/restaurant/menu/item/update/{id}', [MenuItemController::class, 'update_menu_item']);
+    Route::delete('/restaurant/menu/item/{id}', [MenuItemController::class, 'destroy']);
+    Route::get('/restaurant/menu/item/list/all', [MenuItemController::class, 'fetch_all_items']);
 
+    
+Route::post('/order/create', [OrdersController::class, 'createOrderWithItems']);
 Route::get('/order/fetch', [OrdersController::class, 'fetchOrder']);
 Route::get('/order/fetchall', [OrdersController::class, 'fetch_all_orders']);
-
 Route::post('/order/update', [OrdersController::class, 'update_order']);
+
 
 
   
