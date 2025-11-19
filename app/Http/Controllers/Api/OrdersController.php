@@ -98,56 +98,99 @@ class OrdersController extends Controller
      * Fetch all orders for restaurant
      */
     public function fetch_all_orders(Request $request)
-    {
-        $restaurantId = $this->getRestaurantId($request);
+{
+    $restaurantId = $this->getRestaurantId($request);
 
-        if (!$restaurantId) {
-            return response()->json(['message' => 'Restaurant not found'], 404);
-        }
-
-        $orders = Order::with('table')
-                       ->where('restaurant_id', $restaurantId)
-                       ->orderBy('id', 'desc')
-                       ->get();
-
-        return response()->json([
-            'success' => true,
-            'data'    => $orders
-        ]);
+    if (!$restaurantId) {
+        return response()->json(['message' => 'Restaurant not found'], 404);
     }
+
+    $orders = Order::with([
+        'table',
+        'items',
+        'items.menuItem'
+    ])
+    ->where('restaurant_id', $restaurantId)
+    ->orderBy('id', 'desc')
+    ->get();
+
+    return response()->json([
+        'success' => true,
+        'data'    => $orders
+    ]);
+}
+
 
     /**
      * Update Order
      */
-    public function update_order(Request $request)
-    {
-        $validated = $request->validate([
-            'order_id' => 'required|exists:orders,id',
-            'status' => 'nullable|in:pending,preparing,served,completed,cancelled',
-            'payment_status' => 'nullable|in:pending,paid',
-            'payment_method' => 'nullable|in:cash,upi,card'
-        ]);
+   public function update_order(Request $request)
+{
+    $validated = $request->validate([
+        'order_id' => 'required|exists:orders,id',
 
-        $order = Order::find($validated['order_id']);
+        'status' => 'nullable|in:pending,preparing,served,completed,cancelled',
+        'payment_status' => 'nullable|in:pending,paid',
+        'payment_method' => 'nullable|in:cash,upi,card',
 
-        if ($request->filled('status')) {
-            $order->status = $request->status;
-        }
+        'items' => 'nullable|array',
+        'items.*.order_item_id' => 'required|exists:order_items,id',
+        'items.*.quantity' => 'required|integer|min:1',
 
-        if ($request->filled('payment_status')) {
-            $order->payment_status = $request->payment_status;
-        }
+        // ⭐ ADD THIS
+        'deleted_items' => 'nullable|array',
+        'deleted_items.*' => 'exists:order_items,id',
+    ]);
 
-        if ($request->filled('payment_method')) {
-            $order->payment_method = $request->payment_method;
-        }
+    $order = Order::find($validated['order_id']);
 
-        $order->save();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Order updated successfully',
-            'data'    => $order
-        ]);
+    // ⭐ Update basic fields
+    if ($request->filled('status')) {
+        $order->status = $request->status;
     }
+    if ($request->filled('payment_status')) {
+        $order->payment_status = $request->payment_status;
+    }
+    if ($request->filled('payment_method')) {
+        $order->payment_method = $request->payment_method;
+    }
+
+    // ⭐ DELETE removed items FIRST
+    if ($request->has('deleted_items')) {
+        foreach ($request->deleted_items as $delId) {
+            OrderItem::where('id', $delId)
+                ->where('order_id', $order->id) // safety
+                ->delete();
+        }
+    }
+
+    // ⭐ Update remaining items
+    if ($request->has('items')) {
+        foreach ($request->items as $item) {
+
+            $orderItem = OrderItem::where('id', $item['order_item_id'])
+                ->where('order_id', $order->id)
+                ->first();
+
+            if ($orderItem) {
+                $orderItem->quantity = $item['quantity'];
+                $orderItem->total = $orderItem->price * $orderItem->quantity;
+                $orderItem->save();
+            }
+        }
+    }
+
+    // ⭐ Recalculate Total
+    $newTotal = OrderItem::where('order_id', $order->id)->sum('total');
+    $order->total_amount = $newTotal;
+    $order->save();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Order updated successfully',
+        'data' => $order
+    ]);
+}
+
+
 }

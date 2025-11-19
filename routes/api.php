@@ -60,10 +60,10 @@ Route::delete('/restaurant/table/delete/{id}', [RestaurantTablesController::clas
     Route::get('/restaurant/menu/item/list/all', [MenuItemController::class, 'fetch_all_items']);
 
     
-Route::post('/order/create', [OrdersController::class, 'createOrderWithItems']);
-Route::get('/order/fetch', [OrdersController::class, 'fetchOrder']);
-Route::get('/order/fetchall', [OrdersController::class, 'fetch_all_orders']);
-Route::post('/order/update', [OrdersController::class, 'update_order']);
+Route::post('/restaurant/orders/create', [OrdersController::class, 'createOrderWithItems']);
+Route::get('/restaurant/orders/fetch', [OrdersController::class, 'fetchOrder']);
+Route::get('/restaurant/orders/fetchall', [OrdersController::class, 'fetch_all_orders']);
+Route::post('/restaurant/orders/update', [OrdersController::class, 'update_order']);
 
 
 
