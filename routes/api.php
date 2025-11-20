@@ -58,6 +58,8 @@ Route::delete('/restaurant/table/delete/{id}', [RestaurantTablesController::clas
     Route::post('/restaurant/menu/item/update/{id}', [MenuItemController::class, 'update_menu_item']);
     Route::delete('/restaurant/menu/item/{id}', [MenuItemController::class, 'destroy']);
     Route::get('/restaurant/menu/item/list/all', [MenuItemController::class, 'fetch_all_items']);
+Route::post('/restaurant/menu/item/upload-image', [MenuItemController::class, 'uploadImage']);
+
 
     
 Route::post('/restaurant/orders/create', [OrdersController::class, 'createOrderWithItems']);

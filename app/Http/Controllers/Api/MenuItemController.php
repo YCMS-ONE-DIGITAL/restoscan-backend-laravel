@@ -27,24 +27,25 @@ class MenuItemController extends Controller
     $restaurantId = $this->getRestaurantId($request);
 
     $validated = $request->validate([
-        'menu_id'      => 'required|exists:menus,id',
-        'category_id'  => 'required|exists:categories,id',
-        'name'         => 'required|string|max:255',
-        'description'  => 'nullable|string',
-        'price'        => 'required|numeric|min:1',
-        'type'         => 'required|in:veg,non_veg,egg',
-        'image'        => 'nullable|string',
-        'is_available' => 'boolean',
+        'menu_id'       => 'required|exists:menus,id',
+        'category_id'   => 'required|exists:categories,id',
+        'name'          => 'required|string|max:255',
+        'description'   => 'nullable|string',
+        'price'         => 'required|numeric|min:0.01',
+        'type'          => 'required|in:veg,non_veg,egg',
+        'image'         => 'nullable|string',
+        'is_available'  => 'sometimes|boolean',
     ]);
 
     $validated['restaurant_id'] = $restaurantId;
+    $validated['image'] = $validated['image'] ?? null; // ← ये ज़रूरी है!
 
     $item = MenuItem::create($validated);
 
     return response()->json([
         'message' => 'Menu item created successfully',
         'item' => $item
-    ]);
+    ], 201);
 }
 
 
@@ -63,6 +64,35 @@ public function fetch_all_items(Request $request)
         'data' => $items
     ]);
 }
+
+public function uploadImage(Request $request)
+{
+    $request->validate([
+        'file' => 'required|file|image|mimes:jpg,jpeg,png,webp,gif|max:5048',
+    ]);
+
+    $restaurantId = $this->getRestaurantId($request);
+    if (!$restaurantId) {
+        return response()->json(['message' => 'Unauthorized'], 401);
+    }
+
+    $folder = "uploads/restaurants/{$restaurantId}/items";
+    if (!file_exists(public_path($folder))) {
+        mkdir(public_path($folder), 0777, true);
+    }
+
+    $file = $request->file('file');
+    $fileName = time() . '_' . uniqid() . '.' . $file->extension();
+
+    $file->move(public_path($folder), $fileName);
+
+    // ⭐ FRONTEND ला EXACT path पाठवतो
+    return response()->json([
+        'success' => true,
+        'filename' => "$folder/$fileName"
+    ]);
+}
+
 
 
     /**
