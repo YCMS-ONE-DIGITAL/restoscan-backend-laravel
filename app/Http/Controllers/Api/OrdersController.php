@@ -85,7 +85,7 @@ class OrdersController extends Controller
             'order_id' => 'required|exists:orders,id'
         ]);
 
-        $order = Order::with(['items.menuItem', 'table'])
+        $order = Order::with(['items.menu_item', 'table'])
                       ->find($validated['order_id']);
 
         return response()->json([
@@ -108,7 +108,7 @@ class OrdersController extends Controller
     $orders = Order::with([
         'table',
         'items',
-        'items.menuItem'
+        'items.menu_item'
     ])
     ->where('restaurant_id', $restaurantId)
     ->orderBy('id', 'desc')

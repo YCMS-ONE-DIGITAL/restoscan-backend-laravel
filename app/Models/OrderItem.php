@@ -16,7 +16,7 @@ class OrderItem extends Model
         'total',
     ];
 
-   public function menuItem()
+   public function menu_item()
 {
     return $this->belongsTo(MenuItem::class, 'menu_item_id', 'id');
 }

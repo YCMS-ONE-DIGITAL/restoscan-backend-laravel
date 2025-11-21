@@ -10,8 +10,9 @@ class CustomCors
         $origin = $request->headers->get('Origin');
 
         $allowedOrigins = [
-            'http://localhost:5173',
+            'http://localhost:5174',
         ];
+        
 
         // Handle OPTIONS (Preflight) request FIRST
         if ($request->getMethod() === "OPTIONS") {
