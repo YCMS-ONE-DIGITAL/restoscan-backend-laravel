@@ -185,4 +185,20 @@ public function uploadImage(Request $request)
 
         return response()->json(['message' => 'Menu item deleted successfully']);
     }
+
+
+    public function public_menu_items(Request $request)
+{
+    if (!$request->restaurant_id) {
+        return response()->json(['message' => 'restaurant_id required'], 422);
+    }
+
+    $items = MenuItem::where('restaurant_id', $request->restaurant_id)->get();
+
+    return response()->json([
+        'status' => true,
+        'data' => $items
+    ]);
+}
+
 }

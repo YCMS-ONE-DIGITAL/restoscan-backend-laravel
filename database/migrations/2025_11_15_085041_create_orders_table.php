@@ -15,7 +15,12 @@ return new class extends Migration
             $table->id();
             $table->foreignId('restaurant_id')->constrained('restaurants')->onDelete('cascade');
             $table->foreignId('table_id')->constrained('restaurant_tables')->onDelete('cascade');
-            $table->enum('status', ['pending', 'preparing', 'served', 'completed', 'cancelled'])->default('pending');
+    $table->foreignId('customer_id')
+    ->nullable()
+    ->constrained('customer_details')
+    ->onDelete('set null');
+
+            $table->enum('status', ['pending','kot', 'preparing', 'served', 'completed', 'cancelled'])->default('pending');
             $table->decimal('total_amount', 10, 2)->default(0);
             $table->enum('payment_status', ['pending', 'paid'])->default('pending');
             $table->string('payment_method')->nullable(); // cash / upi / card

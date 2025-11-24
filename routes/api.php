@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\MenuController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\MenuItemController;
 use App\Http\Controllers\Api\OrdersController;
+use App\Http\Controllers\Api\OrdersPublicController;
 
 // Public Routes
 Route::post('/otp/send', [OtpController::class, 'sendOtp']);
@@ -48,7 +49,7 @@ Route::middleware('auth.token')->group(function () {
 
     // Menu Items
     Route::post('/restaurant/menu/item/add', [MenuItemController::class, 'store']);
-    Route::get('/restaurant/menu/item/list', [MenuItemController::class, 'fetch_menu_items_list']);
+    Route::get('/restaurant/menu/item/list', [MenuItemController::class, 'fetch_menu_items_list']); 
     Route::get('/restaurant/menu/item/{id}', [MenuItemController::class, 'fetch_menu_item']);
     Route::post('/restaurant/menu/item/update/{id}', [MenuItemController::class, 'update_menu_item']);
     Route::delete('/restaurant/menu/item/{id}', [MenuItemController::class, 'destroy']);
@@ -68,4 +69,23 @@ Route::middleware('auth.token')->group(function () {
             'user' => $request->auth_user,
         ]);
     });
+});
+
+
+Route::get('/public/menu/items', [MenuItemController::class, 'public_menu_items']);
+
+// PUBLIC Order Create API (NO AUTH REQUIRED)
+Route::post('/public/order/create', [OrdersPublicController::class, 'create']);
+
+
+// PUBLIC CATEGORY API (customer website)
+Route::get('/public/categories', function (Request $request) {
+
+    $restaurantId = $request->query('restaurant_id');
+
+    if (!$restaurantId) {
+        return response()->json(['message' => 'restaurant_id required'], 422);
+    }
+
+    return \App\Models\Category::where('restaurant_id', $restaurantId)->get();
 });
