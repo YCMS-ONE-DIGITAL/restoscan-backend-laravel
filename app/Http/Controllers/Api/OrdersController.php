@@ -1,11 +1,13 @@
 <?php
 
 namespace App\Http\Controllers\Api;
+use Carbon\Carbon;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\MenuItem;
 use App\Models\Order;
+use App\Models\CustomerDetail;
 use App\Models\OrderItem;
 
 class OrdersController extends Controller
@@ -24,35 +26,66 @@ class OrdersController extends Controller
     /**
      * Create Order with Items
      */
-    public function createOrderWithItems(Request $request)
+      public function createOrderWithItems(Request $request)
     {
-
         $restaurantId = $this->getRestaurantId($request);
 
         if (!$restaurantId) {
             return response()->json(['message' => 'Restaurant not found'], 404);
         }
 
+        // ✅ VALIDATION
         $validated = $request->validate([
-            'table_id' => 'required|exists:restaurant_tables,id',
+            'order_type' => 'required|in:dine_in,parcel,delivery',
+
+            // ✅ Only dine_in will require table later
+            'table_id' => 'nullable|exists:restaurant_tables,id',
+
+            'customer_name'  => 'nullable|string|max:255',
+            'customer_phone' => 'nullable|string|max:20',
+
             'items'    => 'required|array|min:1',
             'items.*.menu_item_id' => 'required|exists:menu_items,id',
             'items.*.quantity'     => 'required|integer|min:1',
         ]);
 
-        // Create order
+        // ✅ Dine-In must have table_id
+        if ($validated['order_type'] === "dine_in" && !$validated['table_id']) {
+            return response()->json(['message' => 'Table required for dine-in'], 422);
+        }
+
+        // ✅ Create or fetch customer if phone provided
+        $customerId = null;
+
+        if (!empty($validated['customer_phone'])) {
+            $customer = CustomerDetail::firstOrCreate(
+                [
+                    'phone' => $validated['customer_phone'],
+                    'restaurant_id' => $restaurantId
+                ],
+                [
+                    'name' => $validated['customer_name'] ?? "Unknown Customer"
+                ]
+            );
+
+            $customerId = $customer->id;
+        }
+
+        // ✅ Create New Order
         $order = Order::create([
             'restaurant_id' => $restaurantId,
-            'table_id'      => $validated['table_id'],
+            'order_type'    => $validated['order_type'],
+            'table_id'      => $validated['order_type'] === "dine_in" ? $validated['table_id'] : null,
+            'customer_id'   => $customerId,
             'status'        => 'pending',
             'total_amount'  => 0,
         ]);
 
         $total = 0;
 
+        // ✅ Add Order Items & Calculate Total
         foreach ($validated['items'] as $itemData) {
             $menu = MenuItem::find($itemData['menu_item_id']);
-
             $lineTotal = $menu->price * $itemData['quantity'];
 
             OrderItem::create([
@@ -66,13 +99,13 @@ class OrdersController extends Controller
             $total += $lineTotal;
         }
 
+        // ✅ Update total amount
         $order->update(['total_amount' => $total]);
 
         return response()->json([
             'success' => true,
             'message' => 'Order created successfully',
-            'order'   => $order,
-            'total'   => $total,
+            'order'   => $order->load(['table', 'items.menu_item', 'customer']),
         ]);
     }
 
@@ -97,7 +130,7 @@ class OrdersController extends Controller
     /**
      * Fetch all orders for restaurant
      */
-    public function fetch_all_orders(Request $request)
+   public function fetch_all_orders(Request $request)
 {
     $restaurantId = $this->getRestaurantId($request);
 
@@ -105,20 +138,32 @@ class OrdersController extends Controller
         return response()->json(['message' => 'Restaurant not found'], 404);
     }
 
+    $perPage = $request->get('per_page', 10); // ✅ Default 10
+
     $orders = Order::with([
         'table',
         'items',
-        'items.menu_item'
+        'items.menu_item',
+        'customer'
     ])
     ->where('restaurant_id', $restaurantId)
     ->orderBy('id', 'desc')
-    ->get();
+    ->paginate($perPage);
 
     return response()->json([
         'success' => true,
-        'data'    => $orders
+        'data' => $orders->items(),
+        'pagination' => [
+            'total' => $orders->total(),
+            'per_page' => $orders->perPage(),
+            'current_page' => $orders->currentPage(),
+            'last_page' => $orders->lastPage(),
+            'next_page_url' => $orders->nextPageUrl(),
+            'prev_page_url' => $orders->previousPageUrl(),
+        ]
     ]);
 }
+
 
 
     /**
@@ -191,6 +236,152 @@ class OrdersController extends Controller
         'data' => $order
     ]);
 }
+
+
+
+
+
+
+public function dashboardStats(Request $request)
+{
+    $restaurantId = $this->getRestaurantId($request);
+
+    if (!$restaurantId) {
+        return response()->json(['message' => 'Restaurant not found'], 404);
+    }
+
+    // ✅ Today Orders
+    $todayOrders = Order::where('restaurant_id', $restaurantId)
+        ->whereDate('created_at', today())
+        ->count();
+
+    // ✅ Today Earnings
+    $todayEarnings = Order::where('restaurant_id', $restaurantId)
+        ->whereDate('created_at', today())
+        ->sum('total_amount');
+
+    // ✅ Today's Unique Customers
+    $todayCustomers = Order::where('restaurant_id', $restaurantId)
+        ->whereDate('created_at', today())
+        ->distinct('customer_id')
+        ->count('customer_id');
+
+    // ✅ Last 7 days earnings chart
+    $last7Days = Order::where('restaurant_id', $restaurantId)
+        ->whereDate('created_at', '>=', now()->subDays(6))
+        ->selectRaw("DATE(created_at) as date, SUM(total_amount) as total")
+        ->groupBy('date')
+        ->orderBy('date', 'ASC')
+        ->get();
+
+
+           // ✅ Today's Orders List (FULL DETAIL for dashboard)
+        $orders = Order::with(['items.menu_item', 'table', 'customer'])
+            ->where('restaurant_id', $restaurantId)
+            ->whereDate('created_at', today())
+            ->orderBy('id', 'desc')
+            ->get();
+
+    // ✅ Average Daily Earnings
+    $avgDailyEarnings = $last7Days->avg('total') ?? 0;
+
+
+
+    return response()->json([
+        'success' => true,
+        'todayOrders' => $todayOrders,
+        'todayEarnings' => $todayEarnings,
+        'todayCustomers' => $todayCustomers,
+        'avgDailyEarnings' => round($avgDailyEarnings),
+        'salesChart' => $last7Days,
+        "orders" => $orders,
+    ]);
+}
+
+public function filterOrders(Request $request)
+{
+    $restaurantId = $this->getRestaurantId($request);
+
+    if (!$restaurantId) {
+        return response()->json(['message' => 'Restaurant not found'], 404);
+    }
+
+    $dateRangeType = $request->query('dateRangeType', 'today');
+    $startDate     = $request->query('startDate');
+    $endDate       = $request->query('endDate');
+    
+    // ✅ ADD THESE — important
+    $status        = $request->query('status');
+    $paymentStatus = $request->query('payment_status');
+
+    $orders = Order::with(['items.menu_item', 'table', 'customer'])
+        ->where('restaurant_id', $restaurantId);
+
+    switch ($dateRangeType) {
+        case "today":
+            $orders->whereDate('created_at', today());
+            break;
+
+        case "yesterday":
+            $orders->whereDate('created_at', today()->subDay());
+            break;
+
+        case "last7days":
+            $orders->whereBetween('created_at', [
+                now()->subDays(7)->startOfDay(),
+                now()->endOfDay(),
+            ]);
+            break;
+
+        case "currentMonth":
+            $orders->whereMonth('created_at', now()->month)
+                ->whereYear('created_at', now()->year);
+            break;
+
+        case "lastMonth":
+            $orders->whereMonth('created_at', now()->subMonth()->month)
+                ->whereYear('created_at', now()->subMonth()->year);
+            break;
+
+        case "custom":
+            if ($startDate && $endDate) {
+                $orders->whereBetween('created_at', [
+                    Carbon::parse($startDate)->startOfDay(),
+                    Carbon::parse($endDate)->endOfDay(),
+                ]);
+            }
+            break;
+    }
+
+    // ✅ Status filter
+    if ($status !== null && $status !== "") {
+        $orders->where('status', $status);
+    }
+
+    // ✅ Payment Status filter
+    if ($paymentStatus !== null && $paymentStatus !== "") {
+        $orders->where('payment_status', $paymentStatus);
+    }
+
+    // ✅ Pagination — remove duplicate paginate
+    $perPage = $request->query('per_page', 10);
+    $orders = $orders->orderBy('id', 'desc')->paginate($perPage);
+
+    return response()->json([
+        'success' => true,
+        'data' => $orders->items(),
+        'pagination' => [
+            'total' => $orders->total(),
+            'per_page' => $orders->perPage(),
+            'current_page' => $orders->currentPage(),
+            'last_page' => $orders->lastPage(),
+            'next_page_url' => $orders->nextPageUrl(),
+            'prev_page_url' => $orders->previousPageUrl(),
+        ]
+    ]);
+}
+
+
 
 
 }

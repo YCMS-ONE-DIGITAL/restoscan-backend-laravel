@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
             $table->foreignId('restaurant_id')->constrained('restaurants')->onDelete('cascade');
-            $table->foreignId('table_id')->constrained('restaurant_tables')->onDelete('cascade');
+                $table->foreignId('table_id')->nullable()->constrained('restaurant_tables')->nullOnDelete();
+                 $table->enum('order_type', ['dine_in', 'parcel', 'delivery'])->default('dine_in');
     $table->foreignId('customer_id')
     ->nullable()
     ->constrained('customer_details')

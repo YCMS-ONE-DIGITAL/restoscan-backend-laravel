@@ -14,6 +14,7 @@ class Order extends Model
         'restaurant_id',
         'table_id',
         'customer_id',
+        'order_type',
         'status',
         'total_amount',
         'payment_status',
@@ -29,4 +30,9 @@ class Order extends Model
     {
         return $this->belongsTo(Restaurant_table::class, 'table_id');
     }
+
+    public function customer() {
+   return $this->belongsTo(CustomerDetail::class, 'customer_id');
+}
+
 }

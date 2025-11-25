@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\MenuItemController;
 use App\Http\Controllers\Api\OrdersController;
 use App\Http\Controllers\Api\OrdersPublicController;
+use App\Http\Controllers\Api\CustomerController;
 
 // Public Routes
 Route::post('/otp/send', [OtpController::class, 'sendOtp']);
@@ -21,7 +22,7 @@ Route::post('/user/login', [LoginController::class, 'login']);
 
 // Protected Routes
 Route::middleware('auth.token')->group(function () {
-
+    // dashboard 
     // Restaurant
     Route::post('/restaurant/add', [RestaurantController::class, 'store']);
     Route::get('/restaurant', [RestaurantController::class, 'show']);
@@ -61,6 +62,9 @@ Route::middleware('auth.token')->group(function () {
     Route::get('/restaurant/orders/fetch', [OrdersController::class, 'fetchOrder']);
     Route::get('/restaurant/orders/fetchall', [OrdersController::class, 'fetch_all_orders']);
     Route::post('/restaurant/orders/update', [OrdersController::class, 'update_order']);
+    //dashboard
+Route::get('/restaurant/dashboard/stats', [OrdersController::class, 'dashboardStats']);
+Route::get('/restaurant/orders/filter', [OrdersController::class, 'filterOrders']);
 
     // AUTH CHECK (VERY IMPORTANT)
     Route::get('/user/me', function (Request $request) {
@@ -69,6 +73,13 @@ Route::middleware('auth.token')->group(function () {
             'user' => $request->auth_user,
         ]);
     });
+
+
+    // customers
+    Route::get('/restaurant/customers', [CustomerController::class, 'customers']);
+    Route::get('/restaurant/customer/{id}/orders', [CustomerController::class, 'orderHistory']);
+
+
 });
 
 
