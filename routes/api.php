@@ -19,13 +19,16 @@ use App\Http\Controllers\Api\CustomerController;
 Route::post('/otp/send', [OtpController::class, 'sendOtp']);
 Route::post('/otp/verify', [OtpController::class, 'verifyOtp']);
 Route::post('/user/login', [LoginController::class, 'login']);
+        Route::get('restaurant/orders/{order}/bill', [OrdersController::class, 'generateBill']);
 
 // Protected Routes
 Route::middleware('auth.token')->group(function () {
     // dashboard 
+
     // Restaurant
-    Route::post('/restaurant/add', [RestaurantController::class, 'store']);
-    Route::get('/restaurant', [RestaurantController::class, 'show']);
+    Route::get('/restaurant/check',[RestaurantController::class,'check']);
+    Route::post('/restaurant/store', [RestaurantController::class, 'store']);
+    Route::get('/restaurant/show', [RestaurantController::class, 'show']);
     Route::post('/restaurant/update', [RestaurantController::class, 'update']);
 
     // Menus

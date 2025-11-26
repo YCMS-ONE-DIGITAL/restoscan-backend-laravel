@@ -6,6 +6,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\OrderItem;
 use App\Models\Restaurant_table;
+use App\Models\Restaurant;
+use App\Models\CustomerDetail;
 
 class Order extends Model
 {
@@ -34,5 +36,13 @@ class Order extends Model
     public function customer() {
    return $this->belongsTo(CustomerDetail::class, 'customer_id');
 }
+
+public function restaurant()
+{
+    return $this->belongsTo(Restaurant::class, 'restaurant_id');
+}
+
+
+
 
 }

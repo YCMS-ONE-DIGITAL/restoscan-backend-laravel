@@ -8,28 +8,55 @@ use App\Models\Restaurant;
 
 class RestaurantController extends Controller
 {
-    // Get logged user from auth_user middleware
+    /**
+     * Get logged-in user from auth_user middleware
+     */
     private function getUser(Request $request)
     {
         return $request->get('auth_user');
     }
 
     /**
-     * Add restaurant for logged-in user
+     * ✅ Check if restaurant exists for logged user
+     * Used for route protection in frontend
+     */
+    public function check(Request $request)
+    {
+        $user = $this->getUser($request);
+
+        if (!$user) {
+            return response()->json([
+                'has_restaurant' => false,
+                'message' => 'Unauthorized'
+            ], 401);
+        }
+
+        $exists = Restaurant::where('user_id', $user->id)->exists();
+
+        return response()->json([
+            'has_restaurant' => $exists
+        ]);
+    }
+
+    /**
+     * ✅ Add restaurant for logged-in user (One restaurant per user)
      */
     public function store(Request $request)
     {
         $user = $this->getUser($request);
 
         if (!$user) {
-            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized'
+            ], 401);
         }
 
-        // Check if user already has restaurant
+        // Prevent multiple restaurants per user
         if (Restaurant::where('user_id', $user->id)->exists()) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Restaurant already added for this user'
+                'message' => 'Restaurant already exists for this user'
             ], 400);
         }
 
@@ -54,49 +81,65 @@ class RestaurantController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Restaurant details saved successfully!',
-            'restaurant' => $restaurant
+            'message' => 'Restaurant added successfully!',
+            'restaurant' => $restaurant,
+            'has_restaurant' => true, // ✅ important for frontend redirect
         ]);
     }
 
     /**
-     * Show restaurant details for logged-in user
+     * ✅ Get restaurant details for logged-in user
      */
     public function show(Request $request)
     {
         $user = $this->getUser($request);
 
         if (!$user) {
-            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized'
+            ], 401);
         }
 
         $restaurant = Restaurant::where('user_id', $user->id)->first();
 
         if (!$restaurant) {
-            return response()->json(['status' => 'error', 'message' => 'No restaurant found'], 404);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No restaurant found',
+                'has_restaurant' => false
+            ], 404);
         }
 
         return response()->json([
             'status' => 'success',
-            'restaurant' => $restaurant
+            'restaurant' => $restaurant,
+            'has_restaurant' => true
         ]);
     }
 
     /**
-     * Update restaurant details
+     * ✅ Update restaurant details
      */
     public function update(Request $request)
     {
         $user = $this->getUser($request);
 
         if (!$user) {
-            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized'
+            ], 401);
         }
 
         $restaurant = Restaurant::where('user_id', $user->id)->first();
 
         if (!$restaurant) {
-            return response()->json(['status' => 'error', 'message' => 'No restaurant found'], 404);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No restaurant found',
+                'has_restaurant' => false
+            ], 404);
         }
 
         $validated = $request->validate([
@@ -108,11 +151,12 @@ class RestaurantController extends Controller
             'contact_number' => 'nullable|string|max:15',
         ]);
 
-        $restaurant->update($validated);
+        // Prevent overwriting fields with null
+        $restaurant->update(array_filter($validated, fn($v) => !is_null($v)));
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Restaurant details updated successfully!',
+            'message' => 'Restaurant updated successfully!',
             'restaurant' => $restaurant
         ]);
     }

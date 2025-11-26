@@ -9,6 +9,7 @@ use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\CustomerDetail;
 use App\Models\OrderItem;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class OrdersController extends Controller
 {
@@ -174,7 +175,7 @@ class OrdersController extends Controller
     $validated = $request->validate([
         'order_id' => 'required|exists:orders,id',
 
-        'status' => 'nullable|in:pending,preparing,served,completed,cancelled',
+        'status' => 'nullable|in:pending,kot,preparing,served,completed,cancelled',
         'payment_status' => 'nullable|in:pending,paid',
         'payment_method' => 'nullable|in:cash,upi,card',
 
@@ -298,6 +299,8 @@ public function dashboardStats(Request $request)
     ]);
 }
 
+
+
 public function filterOrders(Request $request)
 {
     $restaurantId = $this->getRestaurantId($request);
@@ -309,8 +312,6 @@ public function filterOrders(Request $request)
     $dateRangeType = $request->query('dateRangeType', 'today');
     $startDate     = $request->query('startDate');
     $endDate       = $request->query('endDate');
-    
-    // ✅ ADD THESE — important
     $status        = $request->query('status');
     $paymentStatus = $request->query('payment_status');
 
@@ -318,10 +319,6 @@ public function filterOrders(Request $request)
         ->where('restaurant_id', $restaurantId);
 
     switch ($dateRangeType) {
-        case "today":
-            $orders->whereDate('created_at', today());
-            break;
-
         case "yesterday":
             $orders->whereDate('created_at', today()->subDay());
             break;
@@ -335,12 +332,12 @@ public function filterOrders(Request $request)
 
         case "currentMonth":
             $orders->whereMonth('created_at', now()->month)
-                ->whereYear('created_at', now()->year);
+                   ->whereYear('created_at', now()->year);
             break;
 
         case "lastMonth":
             $orders->whereMonth('created_at', now()->subMonth()->month)
-                ->whereYear('created_at', now()->subMonth()->year);
+                   ->whereYear('created_at', now()->subMonth()->year);
             break;
 
         case "custom":
@@ -351,21 +348,28 @@ public function filterOrders(Request $request)
                 ]);
             }
             break;
+
+        default:
+            $orders->whereDate('created_at', today());
     }
 
-    // ✅ Status filter
-    if ($status !== null && $status !== "") {
+    if (!empty($status)) {
         $orders->where('status', $status);
     }
 
-    // ✅ Payment Status filter
-    if ($paymentStatus !== null && $paymentStatus !== "") {
+    if (!empty($paymentStatus)) {
         $orders->where('payment_status', $paymentStatus);
     }
 
-    // ✅ Pagination — remove duplicate paginate
     $perPage = $request->query('per_page', 10);
+
     $orders = $orders->orderBy('id', 'desc')->paginate($perPage);
+
+    // ✅ Guarantee order_type NEVER NULL (Fix React crash)
+    $orders->getCollection()->transform(function ($order) {
+        $order->order_type = $order->order_type ?? 'dine_in';
+        return $order;
+    });
 
     return response()->json([
         'success' => true,
@@ -382,6 +386,28 @@ public function filterOrders(Request $request)
 }
 
 
+
+    public function generateBill(Order $order)
+    {
+        $order->load([
+            'items',
+            'items.menu_item',
+            'restaurant',
+            'table',
+            'customer',
+        ]);
+
+        // ✅ 58mm thermal width = 165pt
+        $customPaper = [0, 0, 165, 600];
+        // dd($order->toArray());
+
+
+        
+        return Pdf::loadView('bill', compact('order'))
+            ->setPaper($customPaper, 'portrait')
+            ->setWarnings(false)
+            ->stream("bill-{$order->id}.pdf");
+    }
 
 
 }
