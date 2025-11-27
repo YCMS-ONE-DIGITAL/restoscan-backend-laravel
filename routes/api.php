@@ -30,6 +30,7 @@ Route::middleware('auth.token')->group(function () {
     Route::post('/restaurant/store', [RestaurantController::class, 'store']);
     Route::get('/restaurant/show', [RestaurantController::class, 'show']);
     Route::post('/restaurant/update', [RestaurantController::class, 'update']);
+    Route::get('/restaurant/paymenthistory', [OrdersController::class, 'paymenthistory']);
 
     // Menus
     Route::get('/restaurant/menus', [MenuController::class, 'index']);
@@ -73,7 +74,7 @@ Route::get('/restaurant/orders/filter', [OrdersController::class, 'filterOrders'
     Route::get('/user/me', function (Request $request) {
         return response()->json([
             'status' => 'success',
-            'user' => $request->auth_user,
+        'user' => $request->attributes->get('auth_user'), // ✔ Correct
         ]);
     });
 
@@ -90,6 +91,7 @@ Route::get('/public/menu/items', [MenuItemController::class, 'public_menu_items'
 
 // PUBLIC Order Create API (NO AUTH REQUIRED)
 Route::post('/public/order/create', [OrdersPublicController::class, 'create']);
+Route::post('/public/order/orderhistory', [OrdersPublicController::class, 'publicOrderHistory']);
 
 
 // PUBLIC CATEGORY API (customer website)

@@ -86,7 +86,7 @@ class OtpController extends Controller
     }
 
     // 🔹 Step 2: Verify OTP and Create User
-  public function verifyOtp(Request $request)
+ public function verifyOtp(Request $request)
 {
     $validated = $request->validate([
         'email' => 'required|email',
@@ -96,7 +96,6 @@ class OtpController extends Controller
         'password' => 'required|string|min:6|max:50',
     ]);
 
-    // User exists?
     if (User::where('email', $request->email)->exists()) {
         return response()->json([
             'status' => 'error',
@@ -104,7 +103,6 @@ class OtpController extends Controller
         ], 409);
     }
 
-    // Get OTP record
     $otpRecord = Otp::where('email', $request->email)
         ->where('otp', $request->otp)
         ->where('is_used', false)
@@ -125,7 +123,7 @@ class OtpController extends Controller
         ], 400);
     }
 
-    // Mark OTP used
+    // mark OTP as used
     $otpRecord->update(['is_used' => true]);
 
     // Create user
@@ -136,12 +134,21 @@ class OtpController extends Controller
         'password' => Hash::make($request->password),
     ]);
 
-    // 🔥 AUTO LOGIN TOKEN
-    $token = base64_encode(str()->random(60));
-    $user->remember_token = $token;
+    // ⭐ NEW TOKEN SYSTEM (same as login)
+
+    // Step 1 — Generate RAW token
+    $rawToken = base64_encode(random_bytes(64));
+
+    // Step 2 — Hash and store in DB
+    $hashedToken = hash('sha256', $rawToken);
+    $user->remember_token = $hashedToken;
+
+    // Step 3 — store login device info (optional but recommended)
+    $user->login_ip = $request->ip();
+    $user->login_ua = $request->userAgent();
     $user->save();
 
-    // Return response WITH secure cookie
+    // Step 4 — Send cookie with RAW token
     return response()
         ->json([
             'status' => 'success',
@@ -150,15 +157,16 @@ class OtpController extends Controller
         ])
         ->cookie(
             'auth_token',
-            $token,
+            $rawToken,
             60 * 24 * 7,   // 7 days
             '/',
-            null,
-            true,          // secure
-            true,          // HttpOnly
+            null,    // ⭐ IMPORTANT!
+            false,          // secure
+            true,           // HttpOnly
             false,
-            'Strict'
+            'Lax'
         );
 }
+
 
 }

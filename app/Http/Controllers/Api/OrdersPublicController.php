@@ -11,6 +11,8 @@ use App\Models\MenuItem;
 
 class OrdersPublicController extends Controller
 {
+
+    
     public function create(Request $request)
     {
         // ⭐ STEP 1: VALIDATION
@@ -86,4 +88,28 @@ class OrdersPublicController extends Controller
             'total'       => $total,
         ]);
     }
+
+
+    public function publicOrderHistory(Request $request)
+{
+    $validated = $request->validate([
+        'restaurant_id' => 'required|exists:restaurants,id',
+        'phone' => 'required|string|max:20',
+    ]);
+
+    $orders = Order::with(['items.menu_item', 'table'])
+        ->where('restaurant_id', $validated['restaurant_id'])
+        ->whereHas('customer', function ($q) use ($validated) {
+            $q->where('phone', $validated['phone']);
+        })
+        ->orderBy('id', 'desc')
+        ->get();
+
+    return response()->json([
+        'success' => true,
+        'orders' => $orders,
+    ]);
+}
+
+
 }

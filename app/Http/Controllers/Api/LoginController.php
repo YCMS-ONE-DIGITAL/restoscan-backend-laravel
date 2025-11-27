@@ -37,63 +37,84 @@ class LoginController extends Controller
         ], 401);
     }
 
-    // Create secure token
-    $token = base64_encode(Str::random(60));
-    $user->remember_token = $token;
+    // ---------------------------------------
+    // GENERATE RAW + HASH TOKEN (same as signup)
+    // ---------------------------------------
+    $rawToken = base64_encode(random_bytes(64));  // cookie
+    $hashedToken = hash('sha256', $rawToken);     // database
+
+    // SAVE IN DB
+    $user->remember_token = $hashedToken;
+    $user->login_ip = $request->ip();
+    $user->login_ua = $request->userAgent();
     $user->save();
 
-    return response()->json([
-        'status' => 'success',
-        'message' => 'Login successful',
-        'user' => [
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-            'phone_number' => $user->phone_number,
-        ],
-    ])->cookie(
-        'auth_token',
-        $token,
-        60 * 24 * 7,  // 7 days
-        '/',
-        null,
-        true,         // secure
-        true,         // HttpOnly
-        false,
-        'None'
-    );
+    // SEND RAW TOKEN IN COOKIE (localhost-friendly)
+    return response()
+        ->json([
+            'status' => 'success',
+            'message' => 'Login successful',
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone_number' => $user->phone_number,
+            ],
+        ])
+        ->cookie(
+            'auth_token',
+            $rawToken,
+            60 * 24 * 7,
+            '/',
+            null,
+            false,   // ✔ localhost → secure=false
+            true,
+            false,
+            'Lax'
+        );
 }
 
 
     // 🔹 LOGOUT
-    public function logout(Request $request)
-    {
-        $token = $request->bearerToken();
+ public function logout(Request $request)
+{
+    // Get raw token
+    $rawToken = $request->cookie('auth_token') ?? $request->bearerToken();
 
-        if (!$token) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Token missing',
-            ], 400);
-        }
-
-        // ✅ Find user with remember_token
-        $user = User::where('remember_token', $token)->first();
-
-        if (!$user) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Invalid token',
-            ], 401);
-        }
-
-        // ✅ Clear token
-        $user->remember_token = null;
-        $user->save();
-
+    if (!$rawToken) {
         return response()->json([
+            'status' => 'error',
+            'message' => 'Token missing',
+        ], 400);
+    }
+
+    // 🔥 Fix: decode URL encoded token
+    $rawToken = urldecode($rawToken);
+
+    // Hash it to match DB
+    $hashed = hash('sha256', $rawToken);
+
+    $user = User::where('remember_token', $hashed)->first();
+
+    if (!$user) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Invalid token',
+        ], 401);
+    }
+
+    // Clear credentials
+    $user->remember_token = null;
+    $user->login_ip = null;
+    $user->login_ua = null;
+    $user->save();
+
+    return response()
+        ->json([
             'status' => 'success',
             'message' => 'Logged out successfully',
-        ]);
-    }
+        ])
+        ->withCookie(cookie()->forget('auth_token'));
+}
+
 }

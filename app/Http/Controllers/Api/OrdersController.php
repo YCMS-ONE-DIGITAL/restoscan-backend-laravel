@@ -410,4 +410,28 @@ public function filterOrders(Request $request)
     }
 
 
+
+    public function paymenthistory(Request $request)
+{
+    $user = $request->attributes->get('auth_user');
+    $restaurantId = $user->restaurant->id;
+
+    $payments = Order::where('restaurant_id', $restaurantId)
+        ->orderBy('created_at', 'desc')
+        ->get([
+            'id',
+            'total_amount',
+            'payment_method',
+            'created_at',
+            'payment_status'
+        ]);
+
+    return response()->json([
+        'status' => 'success',
+        'payments' => $payments
+    ]);
+}
+
+
+
 }

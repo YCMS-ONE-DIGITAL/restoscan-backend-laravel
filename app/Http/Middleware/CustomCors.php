@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Middleware;
 
 use Closure;
@@ -9,28 +10,25 @@ class CustomCors
     {
         $origin = $request->headers->get('Origin');
 
-        $allowedOrigins = [
-            'http://localhost:5174',
-        ];
-        
+        // Allowed frontend origin
+        $allowedOrigin = "http://localhost:5173";
 
-        // Handle OPTIONS (Preflight) request FIRST
+        // 🔥 Handle OPTIONS Preflight
         if ($request->getMethod() === "OPTIONS") {
-            $response = response()->json('OK', 200);
-        } else {
-            $response = $next($request);
+            return response("OK", 200)
+                ->header('Access-Control-Allow-Origin', $allowedOrigin)
+                ->header('Access-Control-Allow-Credentials', 'true')
+                ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+                ->header('Access-Control-Allow-Headers', 'Origin, Content-Type, Accept, Authorization, X-Requested-With');
         }
 
-        // Allow only specific origins
-        if (in_array($origin, $allowedOrigins)) {
-            $response->headers->set('Access-Control-Allow-Origin', $origin);
-            $response->headers->set('Access-Control-Allow-Credentials', 'true');
-        }
+        // 🔥 Main request
+        $response = $next($request);
 
-        // Required for PUT, DELETE, POST, PATCH
-        $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-        $response->headers->set('Access-Control-Allow-Headers', 'Origin, Content-Type, Accept, Authorization, X-Requested-With');
-
-        return $response;
+        return $response
+            ->header('Access-Control-Allow-Origin', $allowedOrigin)
+            ->header('Access-Control-Allow-Credentials', 'true')
+            ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+            ->header('Access-Control-Allow-Headers', 'Origin, Content-Type, Accept, Authorization, X-Requested-With');
     }
 }

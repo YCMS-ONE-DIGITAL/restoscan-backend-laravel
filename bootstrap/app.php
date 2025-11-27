@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'auth.token' => \App\Http\Middleware\AuthToken::class,
         ]);
 
+
         // GLOBAL CORS Middleware → IMPORTANT
         $middleware->prepend(App\Http\Middleware\CustomCors::class);
 
