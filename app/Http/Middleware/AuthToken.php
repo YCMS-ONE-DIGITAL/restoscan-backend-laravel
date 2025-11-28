@@ -24,7 +24,7 @@ class AuthToken
         }
 
         // Hash the raw token to compare with DB
-        $rawToken = urldecode($rawToken);   // <-- THIS SOLVES EVERYTHING
+        // $rawToken = urldecode($rawToken);   // 
 
         $hashed = hash('sha256', $rawToken);
 
@@ -39,8 +39,9 @@ class AuthToken
 
         // 🔒 DEVICE + IP LOCK (Prevents token theft)
         if (
-            $user->login_ip !== $request->ip() ||
-            $user->login_ua !== $request->userAgent()
+            $user->login_ip !== $request->ip() 
+            // ||
+            // $user->login_ua !== $request->userAgent()
         ) {
             return response()->json([
                 'status' => 'error',
@@ -51,12 +52,6 @@ class AuthToken
         // Attach authenticated user
         $request->attributes->set('auth_user', $user);
 
-
-        
-//         \Log::info("RAW TOKEN FROM COOKIE: " . ($request->cookie('auth_token')));
-// \Log::info("RAW TOKEN URLDECODED: " . urldecode($request->cookie('auth_token')));
-// \Log::info("HASHED TOKEN: " . hash('sha256', urldecode($request->cookie('auth_token'))));
-// \Log::info("Middleware executed!");
 
 
 

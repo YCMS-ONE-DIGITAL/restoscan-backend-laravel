@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
+
 // Controllers
 use App\Http\Controllers\Api\OtpController;
 use App\Http\Controllers\Api\LoginController;
@@ -19,11 +20,13 @@ use App\Http\Controllers\Api\CustomerController;
 Route::post('/otp/send', [OtpController::class, 'sendOtp']);
 Route::post('/otp/verify', [OtpController::class, 'verifyOtp']);
 Route::post('/user/login', [LoginController::class, 'login']);
+Route::get('/user/logout', [LoginController::class, 'logout']);
         Route::get('restaurant/orders/{order}/bill', [OrdersController::class, 'generateBill']);
 
 // Protected Routes
 Route::middleware('auth.token')->group(function () {
     // dashboard 
+        Route::post('/user/change-password', [LoginController::class, 'changePassword']);
 
     // Restaurant
     Route::get('/restaurant/check',[RestaurantController::class,'check']);
@@ -105,3 +108,14 @@ Route::get('/public/categories', function (Request $request) {
 
     return \App\Models\Category::where('restaurant_id', $restaurantId)->get();
 });
+
+
+
+Route::get('/debug-cookie', function (Request $request) {
+    return response()->json([
+        'cookie' => $request->cookie('auth_token'),
+        'headers' => $request->headers->all(),
+    ]);
+});
+
+

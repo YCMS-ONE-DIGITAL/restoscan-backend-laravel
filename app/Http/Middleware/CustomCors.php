@@ -8,7 +8,7 @@ class CustomCors
 {
     public function handle($request, Closure $next)
     {
-        $origin = $request->headers->get('Origin');
+        $origin = $request->headers->get('Origin')?? '*';
 
         // Allowed frontend origin
         $allowedOrigin = "http://localhost:5173";

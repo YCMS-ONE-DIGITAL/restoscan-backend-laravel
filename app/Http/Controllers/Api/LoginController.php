@@ -40,7 +40,7 @@ class LoginController extends Controller
     // ---------------------------------------
     // GENERATE RAW + HASH TOKEN (same as signup)
     // ---------------------------------------
-    $rawToken = base64_encode(random_bytes(64));  // cookie
+$rawToken = bin2hex(random_bytes(32));   // SAFE TOKEN
     $hashedToken = hash('sha256', $rawToken);     // database
 
     // SAVE IN DB
@@ -66,7 +66,7 @@ class LoginController extends Controller
             $rawToken,
             60 * 24 * 7,
             '/',
-            null,
+            'localhost',
             false,   // ✔ localhost → secure=false
             true,
             false,
@@ -89,7 +89,7 @@ class LoginController extends Controller
     }
 
     // 🔥 Fix: decode URL encoded token
-    $rawToken = urldecode($rawToken);
+    // $rawToken = urldecode($rawToken);
 
     // Hash it to match DB
     $hashed = hash('sha256', $rawToken);
@@ -106,7 +106,8 @@ class LoginController extends Controller
     // Clear credentials
     $user->remember_token = null;
     $user->login_ip = null;
-    $user->login_ua = null;
+    $user->login_ua = null;   
+
     $user->save();
 
     return response()
@@ -114,7 +115,54 @@ class LoginController extends Controller
             'status' => 'success',
             'message' => 'Logged out successfully',
         ])
-        ->withCookie(cookie()->forget('auth_token'));
+        ->cookie(
+        'auth_token', 
+        '',           // Empty value
+        -1,           // Expire now
+        '/', 
+        'localhost',
+        false,
+        true,
+        false,
+        'Lax'
+    );
+}
+
+
+
+public function changePassword(Request $request)
+{
+    $user = $request->attributes->get('auth_user');
+
+    if (!$user) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Unauthorized'
+        ], 401);
+    }
+
+    // Validation
+    $request->validate([
+        'old_password' => 'required|string|min:6',
+        'new_password' => 'required|string|min:6|confirmed', // requires new_password_confirmation
+    ]);
+
+    // Check old password
+    if (!\Hash::check($request->old_password, $user->password)) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Old password is incorrect'
+        ], 400);
+    }
+
+    // Update password
+    $user->password = \Hash::make($request->new_password);
+    $user->save();
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Password changed successfully'
+    ]);
 }
 
 }
