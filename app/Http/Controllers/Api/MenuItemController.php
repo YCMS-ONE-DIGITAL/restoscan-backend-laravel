@@ -69,6 +69,7 @@ public function uploadImage(Request $request)
 {
     $request->validate([
         'file' => 'required|file|image|mimes:jpg,jpeg,png,webp,gif|max:5048',
+        'item_name' => 'required|string'
     ]);
 
     $restaurantId = $this->getRestaurantId($request);
@@ -76,22 +77,33 @@ public function uploadImage(Request $request)
         return response()->json(['message' => 'Unauthorized'], 401);
     }
 
-    $folder = "uploads/restaurants/{$restaurantId}/items";
-    if (!file_exists(public_path($folder))) {
-        mkdir(public_path($folder), 0777, true);
-    }
+    // Restaurant Name
+    $restaurant = $request->get('auth_user')->restaurant;
+    $restaurantName = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '-', $restaurant->restaurant_name));
 
+    // Item Name
+    $itemName = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '-', $request->item_name));
+
+    // ⭐ Storage folder (same as logo)
+    $folder = "menu_items/{$restaurantId}";
+
+    // File Info
     $file = $request->file('file');
-    $fileName = time() . '_' . uniqid() . '.' . $file->extension();
+    $extension = $file->getClientOriginalExtension();
 
-    $file->move(public_path($folder), $fileName);
+    // ⭐ Custom filename
+    $filename = "{$itemName}-{$restaurantName}-{$restaurantId}-" . time() . ".{$extension}";
 
-    // ⭐ FRONTEND ला EXACT path पाठवतो
+    // ⭐ Store file in storage/app/public/menu_items/{id}
+    $path = $file->storeAs($folder, $filename, 'public');
+
+    // Return the path for DB
     return response()->json([
         'success' => true,
-        'filename' => "$folder/$fileName"
+        'filename' => $path  // ex: menu_items/5/pavbhaji-5-123.png
     ]);
 }
+
 
 
 

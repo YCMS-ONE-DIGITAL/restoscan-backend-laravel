@@ -13,6 +13,7 @@ class Category extends Model
     protected $fillable = [
         'restaurant_id',
         'name',
+        'image'
     ];
 
     /**

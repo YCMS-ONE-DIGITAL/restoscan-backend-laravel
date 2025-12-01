@@ -25,6 +25,7 @@ return new class extends Migration
             $table->decimal('total_amount', 10, 2)->default(0);
             $table->enum('payment_status', ['pending', 'paid'])->default('pending');
             $table->string('payment_method')->nullable(); // cash / upi / card
+            $table->text('order_note')->nullable();
             $table->timestamps();
         });
     }

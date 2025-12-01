@@ -18,7 +18,8 @@ return new class extends Migration
             
             $table->foreignId('menu_item_id')->constrained('menu_items')->onDelete('cascade');
             $table->integer('quantity')->default(1);
-            $table->decimal('price', 10, 2);             
+            $table->decimal('price', 10, 2);      
+            $table->text('item_note')->nullable();       
             $table->decimal('total', 10, 2);
             $table->timestamps();
 

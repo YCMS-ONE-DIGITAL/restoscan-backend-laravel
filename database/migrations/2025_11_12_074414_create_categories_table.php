@@ -17,6 +17,7 @@ return new class extends Migration
                   ->constrained('restaurants')
                   ->onDelete('cascade');
     $table->string('name'); // e.g., "Starters"
+    $table->string('image')->nullable();
     $table->timestamps();
         });
     }

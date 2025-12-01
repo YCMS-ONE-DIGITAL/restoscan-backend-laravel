@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\MenuItemController;
 use App\Http\Controllers\Api\OrdersController;
 use App\Http\Controllers\Api\OrdersPublicController;
 use App\Http\Controllers\Api\CustomerController;
+use App\Http\Controllers\Api\ForgetPasswordController;
 
 // Public Routes
 Route::post('/otp/send', [OtpController::class, 'sendOtp']);
@@ -22,6 +23,13 @@ Route::post('/otp/verify', [OtpController::class, 'verifyOtp']);
 Route::post('/user/login', [LoginController::class, 'login']);
 Route::get('/user/logout', [LoginController::class, 'logout']);
         Route::get('restaurant/orders/{order}/bill', [OrdersController::class, 'generateBill']);
+
+            // forget password
+Route::post('/forgot-password/send-otp', [ForgetPasswordController::class, 'sendOtp']);
+Route::post('/forgot-password/verify-otp', [ForgetPasswordController::class, 'verifyOtp']);
+Route::post('/forgot-password/reset', [ForgetPasswordController::class, 'resetPassword']);
+
+
 
 // Protected Routes
 Route::middleware('auth.token')->group(function () {
@@ -47,6 +55,8 @@ Route::middleware('auth.token')->group(function () {
     Route::get('/restaurant/categories', [CategoryController::class, 'index']);
     Route::post('/restaurant/category/update/{id}', [CategoryController::class, 'update']);
     Route::delete('/restaurant/categories/{id}', [CategoryController::class, 'destroy']);
+    Route::post('/restaurant/category/upload-image', [CategoryController::class, 'uploadImage']);
+
 
     // Tables
     Route::post('/restaurant/table/add', [RestaurantTablesController::class, 'store']);
