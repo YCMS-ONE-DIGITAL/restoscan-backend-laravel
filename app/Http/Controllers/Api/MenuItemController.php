@@ -22,31 +22,68 @@ class MenuItemController extends Controller
     /**
      * Add new menu item (Veg, Nonveg, Egg etc)
      */
-    public function store(Request $request)
+  public function store(Request $request)
 {
-    $restaurantId = $this->getRestaurantId($request);
+    try {
 
-    $validated = $request->validate([
-        'menu_id'       => 'required|exists:menus,id',
-        'category_id'   => 'required|exists:categories,id',
-        'name'          => 'required|string|max:255',
-        'description'   => 'nullable|string',
-        'price'         => 'required|numeric|min:0.01',
-        'type'          => 'required|in:veg,non_veg,egg',
-        'image'         => 'nullable|string',
-        'is_available'  => 'sometimes|boolean',
-    ]);
+        // Get restaurant ID (your custom function)
+        $restaurantId = $this->getRestaurantId($request);
 
-    $validated['restaurant_id'] = $restaurantId;
-    $validated['image'] = $validated['image'] ?? null; // ← ये ज़रूरी है!
+        if (!$restaurantId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Restaurant not found for this user.'
+            ], 404);
+        }
 
-    $item = MenuItem::create($validated);
+        // Validation
+        $validator = \Validator::make($request->all(), [
+            'menu_id'       => 'required|exists:menus,id',
+            'category_id'   => 'required|exists:categories,id',
+            'name'          => 'required|string|max:255',
+            'description'   => 'nullable|string',
+            'price'         => 'required|numeric|min:0.01',
+            'type'          => 'required|in:veg,non_veg,egg',
+            'image'         => 'nullable|string',
+            'is_available'  => 'sometimes|boolean',
+        ]);
 
-    return response()->json([
-        'message' => 'Menu item created successfully',
-        'item' => $item
-    ], 201);
+        // If validation fails → return proper JSON
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors'  => $validator->errors()
+            ], 422);
+        }
+
+        $validated = $validator->validated();
+
+        // Add restaurant ID
+        $validated['restaurant_id'] = $restaurantId;
+
+        // Default image to null if not provided
+        $validated['image'] = $validated['image'] ?? null;
+
+        // Create Menu Item
+        $item = MenuItem::create($validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Menu item created successfully.',
+            'item'     => $item
+        ], 201);
+
+    } catch (\Exception $e) {
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Something went wrong while saving the item.',
+            'error_details' => $e->getMessage()  // hide in production
+        ], 500);
+    }
 }
+
 
 
 public function fetch_all_items(Request $request)

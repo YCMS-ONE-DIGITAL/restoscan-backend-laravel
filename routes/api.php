@@ -22,7 +22,7 @@ Route::post('/otp/send', [OtpController::class, 'sendOtp']);
 Route::post('/otp/verify', [OtpController::class, 'verifyOtp']);
 Route::post('/user/login', [LoginController::class, 'login']);
 Route::get('/user/logout', [LoginController::class, 'logout']);
-        Route::get('restaurant/orders/{order}/bill', [OrdersController::class, 'generateBill']);
+       
 
             // forget password
 Route::post('/forgot-password/send-otp', [ForgetPasswordController::class, 'sendOtp']);
@@ -41,14 +41,16 @@ Route::middleware('auth.token')->group(function () {
     Route::post('/restaurant/store', [RestaurantController::class, 'store']);
     Route::get('/restaurant/show', [RestaurantController::class, 'show']);
     Route::post('/restaurant/update', [RestaurantController::class, 'update']);
+
+    // paymenthistory
     Route::get('/restaurant/paymenthistory', [OrdersController::class, 'paymenthistory']);
 
     // Menus
     Route::get('/restaurant/menus', [MenuController::class, 'index']);
-    Route::post('/restaurant/menus', [MenuController::class, 'store']);
+    Route::post('/restaurant/menus/add', [MenuController::class, 'store']);
     Route::get('/restaurant/menus/{id}', [MenuController::class, 'show']);
     Route::post('/restaurant/menus/update/{id}', [MenuController::class, 'update']);
-    Route::delete('/restaurant/menus/{id}', [MenuController::class, 'destroy']);
+    Route::delete('/restaurant/menus/delete/{id}', [MenuController::class, 'destroy']);
 
     // Categories
     Route::post('/restaurant/category/add', [CategoryController::class, 'store']);
@@ -67,7 +69,7 @@ Route::middleware('auth.token')->group(function () {
 
     // Menu Items
     Route::post('/restaurant/menu/item/add', [MenuItemController::class, 'store']);
-    Route::get('/restaurant/menu/item/list', [MenuItemController::class, 'fetch_menu_items_list']); 
+    // Route::get('/restaurant/menu/item/list', [MenuItemController::class, 'fetch_menu_items_list']); 
     Route::get('/restaurant/menu/item/{id}', [MenuItemController::class, 'fetch_menu_item']);
     Route::post('/restaurant/menu/item/update/{id}', [MenuItemController::class, 'update_menu_item']);
     Route::delete('/restaurant/menu/item/{id}', [MenuItemController::class, 'destroy']);
@@ -79,9 +81,13 @@ Route::middleware('auth.token')->group(function () {
     Route::get('/restaurant/orders/fetch', [OrdersController::class, 'fetchOrder']);
     Route::get('/restaurant/orders/fetchall', [OrdersController::class, 'fetch_all_orders']);
     Route::post('/restaurant/orders/update', [OrdersController::class, 'update_order']);
+     Route::get('restaurant/orders/{order}/bill', [OrdersController::class, 'generateBill']);
+     Route::get('/restaurant/orders/filter', [OrdersController::class, 'filterOrders']);
+
+
+
     //dashboard
-Route::get('/restaurant/dashboard/stats', [OrdersController::class, 'dashboardStats']);
-Route::get('/restaurant/orders/filter', [OrdersController::class, 'filterOrders']);
+    Route::get('/restaurant/dashboard/stats', [OrdersController::class, 'dashboardStats']);
 
     // AUTH CHECK (VERY IMPORTANT)
     Route::get('/user/me', function (Request $request) {
@@ -121,11 +127,11 @@ Route::get('/public/categories', function (Request $request) {
 
 
 
-Route::get('/debug-cookie', function (Request $request) {
-    return response()->json([
-        'cookie' => $request->cookie('auth_token'),
-        'headers' => $request->headers->all(),
-    ]);
-});
+// Route::get('/debug-cookie', function (Request $request) {
+//     return response()->json([
+//         'cookie' => $request->cookie('auth_token'),
+//         'headers' => $request->headers->all(),
+//     ]);
+// });
 
 

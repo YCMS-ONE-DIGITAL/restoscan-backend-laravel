@@ -31,54 +31,99 @@ class RestaurantController extends Controller
         ]);
     }
 
-    public function store(Request $request)
-    {
+  public function store(Request $request)
+{
+    try {
+
+        // Auth check
         $user = $this->getUser($request);
 
         if (!$user) {
-            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized access'
+            ], 401);
         }
 
+        // Check if restaurant already exists
         if (Restaurant::where('user_id', $user->id)->exists()) {
-            return response()->json(['status' => 'error', 'message' => 'Restaurant already exists'], 400);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'A restaurant is already linked to this user.'
+            ], 400);
         }
 
-        $validated = $request->validate([
-            'restaurant_name' => 'required|string|max:255',
-            'address' => 'nullable|string|max:255',
-            'city' => 'nullable|string|max:100',
-            'state' => 'nullable|string|max:100',
-            'pincode' => 'nullable|string|max:10',
-            'contact_number' => 'nullable|string|max:15',
-            'logo_url' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+        // Validation
+        $validator = \Validator::make($request->all(), [
+            'restaurant_name'  => 'required|string|max:255',
+            'address'          => 'nullable|string|max:255',
+            'city'             => 'nullable|string|max:100',
+            'state'            => 'nullable|string|max:100',
+            'pincode'          => 'nullable|string|max:10',
+            'contact_number'   => 'nullable|string|max:15',
+            'logo_url'         => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validation failed',
+                'errors'  => $validator->errors()
+            ], 422);
+        }
+
+        // Process Logo Upload
         $logoPath = null;
 
         if ($request->hasFile('logo_url')) {
             $file = $request->file('logo_url');
+
+            if (!$file->isValid()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invalid image file. Please upload a valid image.'
+                ], 400);
+            }
+
             $filename = time().'_'.$file->getClientOriginalName();
             $logoPath = $file->storeAs('logos', $filename, 'public');
         }
 
+        // Create Restaurant
         $restaurant = Restaurant::create([
-            'user_id' => $user->id,
-            'restaurant_name' => $validated['restaurant_name'],
-            'address' => $validated['address'] ?? null,
-            'city' => $validated['city'] ?? null,
-            'state' => $validated['state'] ?? null,
-            'pincode' => $validated['pincode'] ?? null,
-            'contact_number' => $validated['contact_number'] ?? null,
-            'logo_url' => $logoPath
+            'user_id'          => $user->id,
+            'restaurant_name'  => $request->restaurant_name,
+            'address'          => $request->address,
+            'city'             => $request->city,
+            'state'            => $request->state,
+            'pincode'          => $request->pincode,
+            'contact_number'   => $request->contact_number,
+            'logo_url'         => $logoPath
         ]);
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Restaurant added successfully!',
+            'message' => 'Restaurant created successfully!',
             'restaurant' => $restaurant,
             'has_restaurant' => true
-        ]);
+        ], 201);
+
+    } catch (\Exception $e) {
+
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Something went wrong while saving restaurant.',
+            'error_details' => $e->getMessage() // Remove in production
+        ], 500);
+
     }
+}
+
+
+
+
+
+
 
     public function show(Request $request)
     {

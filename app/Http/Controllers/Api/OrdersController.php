@@ -116,19 +116,46 @@ class OrdersController extends Controller
      * Fetch single order
      */
     public function fetchOrder(Request $request)
-    {
+{
+    try {
+
+        // Validation (auto returns 422 with errors)
         $validated = $request->validate([
             'order_id' => 'required|exists:orders,id'
         ]);
 
-        $order = Order::with(['items.menu_item', 'table'])
-                      ->find($validated['order_id']);
+        // Fetch order with relations
+        $order = Order::with([
+                'items.menu_item',
+                'table'
+            ])
+            ->find($validated['order_id']);
+
+        // If not found (very unlikely since exists rule used)
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order not found'
+            ], 404);
+        }
 
         return response()->json([
             'success' => true,
-            'data'    => $order
-        ]);
+            'message' => 'Order fetched successfully',
+            'data' => $order
+        ], 200);
+
+    } catch (\Exception $e) {
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Something went wrong',
+            'error_details' => $e->getMessage() // remove in production
+        ], 500);
+
     }
+}
+
 
     /**
      * Fetch all orders
