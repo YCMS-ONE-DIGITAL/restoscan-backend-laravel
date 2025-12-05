@@ -148,23 +148,25 @@ public function uploadImage(Request $request)
      * List items by category
      */
     public function fetch_menu_items_list(Request $request)
-    {
-        $restaurantId = $this->getRestaurantId($request);
+{
+    $restaurantId = $this->getRestaurantId($request);
 
-        if (!$restaurantId) {
-            return response()->json(['message' => 'Restaurant not found'], 404);
-        }
-
-        $validated = $request->validate([
-            'category_id' => 'required|exists:categories,id',
-        ]);
-
-        $items = MenuItem::where('restaurant_id', $restaurantId)
-                         ->where('category_id', $validated['category_id'])
-                         ->get();
-
-        return response()->json($items);
+    if (!$restaurantId) {
+        return response()->json(['success' => false, 'message' => 'Restaurant not found'], 404);
     }
+
+    $items = MenuItem::where('restaurant_id', $restaurantId);
+
+    if ($request->category_id) {
+        $items->where('category_id', $request->category_id);
+    }
+
+    return response()->json([
+        'success' => true,
+        'data' => $items->get()
+    ]);
+}
+
 
     /**
      * Get one menu item

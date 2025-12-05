@@ -165,4 +165,27 @@ public function changePassword(Request $request)
     ]);
 }
 
+
+public function update(Request $request)
+{
+    $user = $request->attributes->get('auth_user');
+
+    // Validate input
+    $request->validate([
+        'name'  => 'required|string|max:255',
+        'phone' => 'nullable|string|max:15',
+    ]);
+
+    // Update user details
+    $user->name = $request->name;
+    $user->phone_number = $request->phone; // match DB column
+    $user->save();
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Profile updated successfully',
+        'user' => $user
+    ]);
+}
+
 }

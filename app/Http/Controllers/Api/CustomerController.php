@@ -13,7 +13,7 @@ class CustomerController extends Controller
     //
  private function getRestaurantId(Request $request)
     {
-        $user = $request->get('auth_user');
+    $user = $request->attributes->get('auth_user');
 
         if (!$user || !$user->restaurant) {
             return null;

@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\OrdersController;
 use App\Http\Controllers\Api\OrdersPublicController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\ForgetPasswordController;
+use App\Http\Controllers\Api\PublicOtpController;
 
 // Public Routes
 Route::post('/otp/send', [OtpController::class, 'sendOtp']);
@@ -35,6 +36,7 @@ Route::post('/forgot-password/reset', [ForgetPasswordController::class, 'resetPa
 Route::middleware('auth.token')->group(function () {
     // dashboard 
         Route::post('/user/change-password', [LoginController::class, 'changePassword']);
+        Route::post('/user/update', [LoginController::class, 'update']);
 
     // Restaurant
     Route::get('/restaurant/check',[RestaurantController::class,'check']);
@@ -69,7 +71,7 @@ Route::middleware('auth.token')->group(function () {
 
     // Menu Items
     Route::post('/restaurant/menu/item/add', [MenuItemController::class, 'store']);
-    // Route::get('/restaurant/menu/item/list', [MenuItemController::class, 'fetch_menu_items_list']); 
+    Route::get('/restaurant/menu/item/list', [MenuItemController::class, 'fetch_menu_items_list']); 
     Route::get('/restaurant/menu/item/{id}', [MenuItemController::class, 'fetch_menu_item']);
     Route::post('/restaurant/menu/item/update/{id}', [MenuItemController::class, 'update_menu_item']);
     Route::delete('/restaurant/menu/item/{id}', [MenuItemController::class, 'destroy']);
@@ -106,11 +108,28 @@ Route::middleware('auth.token')->group(function () {
 });
 
 
+
 Route::get('/public/menu/items', [MenuItemController::class, 'public_menu_items']);
 
-// PUBLIC Order Create API (NO AUTH REQUIRED)
-Route::post('/public/order/create', [OrdersPublicController::class, 'create']);
-Route::post('/public/order/orderhistory', [OrdersPublicController::class, 'publicOrderHistory']);
+// -----------------------------
+// ⭐ OTP APIS
+// -----------------------------
+
+// Send OTP to user's mobile
+Route::post('/public/send-otp', [PublicOtpController::class, 'sendOtp']);
+// Verify OTP entered by user
+Route::post('/public/verify-otp', [PublicOtpController::class, 'verifyOtp']);
+
+
+// -----------------------------
+// ⭐ PUBLIC ORDER APIS
+// -----------------------------
+
+// Create order (OTP verified required)
+Route::post('/public/order', [OrdersPublicController::class, 'create']);
+
+// Get customer order history
+Route::post('/public/order-history', [OrdersPublicController::class, 'publicOrderHistory']);
 
 
 // PUBLIC CATEGORY API (customer website)
@@ -124,14 +143,5 @@ Route::get('/public/categories', function (Request $request) {
 
     return \App\Models\Category::where('restaurant_id', $restaurantId)->get();
 });
-
-
-
-// Route::get('/debug-cookie', function (Request $request) {
-//     return response()->json([
-//         'cookie' => $request->cookie('auth_token'),
-//         'headers' => $request->headers->all(),
-//     ]);
-// });
 
 
