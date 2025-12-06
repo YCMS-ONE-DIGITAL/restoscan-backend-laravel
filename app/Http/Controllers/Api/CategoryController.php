@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Category;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Storage;
+use Exception;
 
 class CategoryController extends Controller
 {
@@ -16,87 +17,97 @@ class CategoryController extends Controller
     }
 
     /**
-     * Upload Category Image (Same as MenuItem)
+     * Upload Category Image
      */
     public function uploadImage(Request $request)
     {
-        $request->validate([
-            'file' => 'required|file|image|mimes:jpg,jpeg,png,webp|max:4096',
-            'category_name' => 'required|string'
-        ]);
+        try {
+            $request->validate([
+                'file' => 'required|file|image|mimes:jpg,jpeg,png,webp|max:4096',
+                'category_name' => 'required|string'
+            ]);
 
-        $restaurantId = $this->getRestaurantId($request);
-        if (!$restaurantId) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            $restaurantId = $this->getRestaurantId($request);
+            if (!$restaurantId) {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+
+            $restaurant = $request->attributes->get('auth_user')->restaurant;
+
+            // Sanitize names
+            $restaurantName = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '-', $restaurant->restaurant_name));
+            $categoryName   = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '-', $request->category_name));
+
+            $folder = "category_images/{$restaurantId}";
+            $file = $request->file('file');
+            $extension = $file->getClientOriginalExtension();
+
+            $filename = "{$categoryName}-{$restaurantName}-{$restaurantId}-" . time() . ".{$extension}";
+            $path = $file->storeAs($folder, $filename, 'public');
+
+            return response()->json([
+                'success' => true,
+                'filename' => $path
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
         }
-
-        // Restaurant Name
-        $restaurant = $request->attributes->get('auth_user')->restaurant;
-        $restaurantName = strtolower(
-            preg_replace('/[^A-Za-z0-9\-]/', '-', $restaurant->restaurant_name)
-        );
-
-        // Category Name
-        $categoryName = strtolower(
-            preg_replace('/[^A-Za-z0-9\-]/', '-', $request->category_name)
-        );
-
-        // Folder
-        $folder = "category_images/{$restaurantId}";
-
-        // File
-        $file = $request->file('file');
-        $extension = $file->getClientOriginalExtension();
-
-        // Filename
-        $filename = "{$categoryName}-{$restaurantName}-{$restaurantId}-" . time() . ".{$extension}";
-
-        // Store
-        $path = $file->storeAs($folder, $filename, 'public');
-
-        return response()->json([
-            'success' => true,
-            'filename' => $path
-        ]);
     }
 
     /**
-     * Create Category (store only image path)
+     * Create Category
      */
     public function store(Request $request)
     {
-        $restaurantId = $this->getRestaurantId($request);
+        try {
+            $restaurantId = $this->getRestaurantId($request);
+            if (!$restaurantId) {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'image' => 'nullable|string', // path from uploadImage()
-        ]);
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'image' => 'nullable|string',
+            ]);
 
-        $category = Category::create([
-            'restaurant_id' => $restaurantId,
-            'name' => $validated['name'],
-            'image' => $validated['image'] ?? null,
-        ]);
+            $category = Category::create([
+                'restaurant_id' => $restaurantId,
+                'name' => $validated['name'],
+                'image' => $validated['image'] ?? null,
+            ]);
 
-        return response()->json([
-            'message' => 'Category created successfully',
-            'category' => $category
-        ]);
+            return response()->json([
+                'message' => 'Category created successfully',
+                'category' => $category
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
-     * Fetch All
+     * Fetch All Categories
      */
     public function index(Request $request)
     {
-        $restaurantId = $this->getRestaurantId($request);
+        try {
+            $restaurantId = $this->getRestaurantId($request);
 
-        if (!$restaurantId) {
-            return response()->json(['message' => 'Restaurant not found'], 404);
+            if (!$restaurantId) {
+                return response()->json(['message' => 'Restaurant not found'], 404);
+            }
+
+            $categories = Category::where('restaurant_id', $restaurantId)->get();
+
+            return response()->json($categories);
+        } catch (Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
         }
-
-        $categories = Category::where('restaurant_id', $restaurantId)->get();
-        return response()->json($categories);
     }
 
     /**
@@ -104,33 +115,44 @@ class CategoryController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $restaurantId = $this->getRestaurantId($request);
+        try {
+            $restaurantId = $this->getRestaurantId($request);
+            if (!$restaurantId) {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
 
-        $category = Category::where('id', $id)
-            ->where('restaurant_id', $restaurantId)
-            ->first();
+            $category = Category::where('id', $id)
+                                ->where('restaurant_id', $restaurantId)
+                                ->first();
 
-        if (!$category) {
-            return response()->json(['message' => 'Category not found'], 404);
+            if (!$category) {
+                return response()->json(['message' => 'Category not found'], 404);
+            }
+
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'image' => 'nullable|string',
+            ]);
+
+            $category->name = $validated['name'];
+
+            if (isset($validated['image'])) {
+                // Delete old image
+                if ($category->image && Storage::disk('public')->exists($category->image)) {
+                    Storage::disk('public')->delete($category->image);
+                }
+                $category->image = $validated['image'];
+            }
+
+            $category->save();
+
+            return response()->json([
+                'message' => 'Category updated successfully',
+                'category' => $category
+            ]);
+        } catch (Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
         }
-
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'image' => 'nullable|string', // new path from uploadImage()
-        ]);
-
-        $category->name = $validated['name'];
-
-        if (isset($validated['image'])) {
-            $category->image = $validated['image'];
-        }
-
-        $category->save();
-
-        return response()->json([
-            'message' => 'Category updated successfully',
-            'category' => $category
-        ]);
     }
 
     /**
@@ -138,23 +160,26 @@ class CategoryController extends Controller
      */
     public function destroy(Request $request, $id)
     {
-        $restaurantId = $this->getRestaurantId($request);
+        try {
+            $restaurantId = $this->getRestaurantId($request);
 
-        $category = Category::where('id', $id)
-            ->where('restaurant_id', $restaurantId)
-            ->first();
+            $category = Category::where('id', $id)
+                                ->where('restaurant_id', $restaurantId)
+                                ->first();
 
-        if (!$category) {
-            return response()->json(['message' => 'Category not found'], 404);
+            if (!$category) {
+                return response()->json(['message' => 'Category not found'], 404);
+            }
+
+            if ($category->image && Storage::disk('public')->exists($category->image)) {
+                Storage::disk('public')->delete($category->image);
+            }
+
+            $category->delete();
+
+            return response()->json(['message' => 'Category deleted successfully']);
+        } catch (Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
         }
-
-        // Delete image
-        if ($category->image && Storage::disk('public')->exists($category->image)) {
-            Storage::disk('public')->delete($category->image);
-        }
-
-        $category->delete();
-
-        return response()->json(['message' => 'Category deleted successfully']);
     }
 }

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Menu;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Exception;
 
 class MenuController extends Controller
 {
@@ -12,7 +14,6 @@ class MenuController extends Controller
     {
         $user = $request->get('auth_user');
 
-        // user ला restaurant नसेल तर null
         if (!$user || !$user->restaurant) {
             return null;
         }
@@ -25,15 +26,21 @@ class MenuController extends Controller
      */
     public function index(Request $request)
     {
-        $restaurantId = $this->getRestaurantId($request);
+        try {
+            $restaurantId = $this->getRestaurantId($request);
 
-        if (!$restaurantId) {
-            return response()->json(['message' => 'Restaurant not found'], 404);
+            if (!$restaurantId) {
+                return response()->json(['message' => 'Restaurant not found'], 404);
+            }
+
+            $menus = Menu::where('restaurant_id', $restaurantId)
+                        ->orderBy('id', 'DESC')
+                        ->get();
+
+            return response()->json($menus);
+        } catch (Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
         }
-
-        return Menu::where('restaurant_id', $restaurantId)
-                   ->orderBy('id', 'DESC')
-                   ->get();
     }
 
     /**
@@ -41,25 +48,41 @@ class MenuController extends Controller
      */
     public function store(Request $request)
     {
-        $restaurantId = $this->getRestaurantId($request);
+        try {
+            $restaurantId = $this->getRestaurantId($request);
 
-        if (!$restaurantId) {
-            return response()->json(['message' => 'Restaurant not found'], 404);
+            if (!$restaurantId) {
+                return response()->json(['message' => 'Restaurant not found'], 404);
+            }
+
+            // Manual validator for custom message
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+            ], [
+                'name.required' => 'Menu name is required',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $validator->errors()->first(),
+                ], 422);
+            }
+
+            $validated = $validator->validated();
+
+            $menu = Menu::create([
+                'restaurant_id' => $restaurantId,
+                'name' => $validated['name'],
+            ]);
+
+            return response()->json([
+                'message' => 'Menu created successfully',
+                'menu' => $menu,
+            ]);
+        } catch (Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
         }
-
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-        ]);
-
-        $menu = Menu::create([
-            'restaurant_id' => $restaurantId,
-            'name' => $validated['name'],
-        ]);
-
-        return response()->json([
-            'message' => 'Menu created successfully',
-            'menu' => $menu,
-        ]);
     }
 
     /**
@@ -67,66 +90,86 @@ class MenuController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $restaurantId = $this->getRestaurantId($request);
+        try {
+            $restaurantId = $this->getRestaurantId($request);
 
-        $menu = Menu::where('id', $id)
-                    ->where('restaurant_id', $restaurantId)
-                    ->first();
+            $menu = Menu::where('id', $id)
+                        ->where('restaurant_id', $restaurantId)
+                        ->first();
 
-        if (!$menu) {
-            return response()->json(['message' => 'Menu not found'], 404);
+            if (!$menu) {
+                return response()->json(['message' => 'Menu not found'], 404);
+            }
+
+            return response()->json($menu);
+        } catch (Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
         }
-
-        return response()->json($menu);
     }
 
     /**
      * Update menu
      */
     public function update(Request $request, $id)
-{
-    $restaurantId = $this->getRestaurantId($request);
+    {
+        try {
+            $restaurantId = $this->getRestaurantId($request);
 
-    $menu = Menu::where('id', $id)
-                ->where('restaurant_id', $restaurantId)
-                ->first();
+            $menu = Menu::where('id', $id)
+                        ->where('restaurant_id', $restaurantId)
+                        ->first();
 
-    if (!$menu) {
-        return response()->json(['message' => 'Menu not found'], 404);
+            if (!$menu) {
+                return response()->json(['message' => 'Menu not found'], 404);
+            }
+
+           $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+            ], [
+                'name.required' => 'Menu name is required',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $validator->errors()->first(),
+                ], 422);
+            }
+
+            $validated = $validator->validated();
+
+            $menu->update($validated);
+
+            return response()->json([
+                'message' => 'Menu updated successfully',
+                'menu' => $menu,
+            ]);
+        } catch (Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
+        }
     }
-
-    $validated = $request->validate([
-        'name' => 'required|string|max:255',
-    ]);
-
-    $menu->update($validated);
-
-    return response()->json([
-        'message' => 'Menu updated successfully',
-        'menu' => $menu
-    ]);
-}
-
 
     /**
      * Delete menu
      */
     public function destroy(Request $request, $id)
     {
-        $restaurantId = $this->getRestaurantId($request);
+        try {
+            $restaurantId = $this->getRestaurantId($request);
 
-        $menu = Menu::where('id', $id)
-                    ->where('restaurant_id', $restaurantId)
-                    ->first();
+            $menu = Menu::where('id', $id)
+                        ->where('restaurant_id', $restaurantId)
+                        ->first();
 
-        if (!$menu) {
-            return response()->json(['message' => 'Menu not found'], 404);
+            if (!$menu) {
+                return response()->json(['message' => 'Menu not found'], 404);
+            }
+
+            $menu->delete();
+
+            return response()->json(['message' => 'Menu deleted successfully']);
+        } catch (Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
         }
-
-        $menu->delete();
-
-        return response()->json([
-            'message' => 'Menu deleted successfully'
-        ]);
     }
 }
