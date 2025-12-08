@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\OrdersPublicController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\ForgetPasswordController;
 use App\Http\Controllers\Api\PublicOtpController;
+use App\Http\Controllers\Api\StaffController;
 
 // Public Routes
 Route::post('/otp/send', [OtpController::class, 'sendOtp']);
@@ -24,6 +25,10 @@ Route::post('/otp/verify', [OtpController::class, 'verifyOtp']);
 Route::post('/user/login', [LoginController::class, 'login']);
 Route::get('/user/logout', [LoginController::class, 'logout']);
        
+    // STAFF LOGIN + LOGOUT
+    Route::post('/restaurant/staff/login', [StaffController::class, 'login']);  
+    Route::post('/restaurant/staff/logout', [StaffController::class, 'logout']);
+
 
             // forget password
 Route::post('/forgot-password/send-otp', [ForgetPasswordController::class, 'sendOtp']);
@@ -34,6 +39,13 @@ Route::post('/forgot-password/reset', [ForgetPasswordController::class, 'resetPa
 
 // Protected Routes
 Route::middleware('auth.token')->group(function () {
+       
+    Route::post('/restaurant/staff/add', [StaffController::class, 'store']);
+    Route::get('/restaurant/staff/all', [StaffController::class, 'Staff_List']);
+    Route::post('/restaurant/staff/update/{id}', [StaffController::class, 'update']);
+    Route::get('/restaurant/staff/fetchone/{id}', [StaffController::class, 'show']);
+    Route::delete('/restaurant/staff/delete/{id}', [StaffController::class, 'destroy']);
+
     // dashboard 
         Route::post('/user/change-password', [LoginController::class, 'changePassword']);
         Route::post('/user/update', [LoginController::class, 'update']);
@@ -103,6 +115,11 @@ Route::middleware('auth.token')->group(function () {
     // customers
     Route::get('/restaurant/customers', [CustomerController::class, 'customers']);
     Route::get('/restaurant/customer/{id}/orders', [CustomerController::class, 'orderHistory']);
+
+
+
+    // staffs
+
 
 
 });
