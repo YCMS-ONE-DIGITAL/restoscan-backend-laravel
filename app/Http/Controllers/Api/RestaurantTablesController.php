@@ -34,12 +34,14 @@ class RestaurantTablesController extends Controller
             $validated = $request->validate([
                 'table_no' => 'required|string|max:50',
                 'seating_number' => 'required|integer|min:1',
+                'status' => 'required|in:available,occupied',
             ]);
 
             $seating = Restaurant_table::create([
                 'restaurant_id' => $restaurantId,
                 'table_no' => $validated['table_no'],
                 'seating_number' => $validated['seating_number'],
+                'status' => $validated['status'],
             ]);
 
             return response()->json([
@@ -98,6 +100,8 @@ class RestaurantTablesController extends Controller
                 'table_id' => 'required|exists:restaurant_tables,id',
                 'table_no' => "sometimes|string|max:50",
                 'seating_number' => "sometimes|integer|min:1",
+                'status' => 'required|in:available,occupied',
+
             ]);
 
             $table = Restaurant_table::where('id', $validated['table_id'])

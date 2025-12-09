@@ -8,6 +8,7 @@ use App\Models\OrderItem;
 use App\Models\Restaurant_table;
 use App\Models\Restaurant;
 use App\Models\CustomerDetail;
+use App\Models\Staff;
 
 class Order extends Model
 {
@@ -16,6 +17,7 @@ class Order extends Model
         'restaurant_id',
         'table_id',
         'customer_id',
+        'staff_id',
         'order_type',
         'status',
         'total_amount',
@@ -42,6 +44,11 @@ public function restaurant()
 {
     return $this->belongsTo(Restaurant::class, 'restaurant_id');
 }
+
+public function staff()
+    {
+        return $this->belongsTo(Staff::class, 'staff_id');  // 👈 NEW RELATION
+    }
 
 
 

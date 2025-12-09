@@ -24,35 +24,42 @@ class StaffController extends Controller
 
 
       // LIST STAFF
-    public function Staff_List(Request $request)
-    {
-  // get restaurant id from logged in user
+   public function Staff_List(Request $request)
+{
+    try {
+        $restaurantId = $this->getRestaurantId($request);
 
-        try {
-
-                    $restaurantId = $this->getRestaurantId($request);
-            if (!$restaurantId) {
+        if (!$restaurantId) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Restaurant not found'
             ], 400);
         }
 
-                $staff = Staff::where('restaurant_id', $restaurantId)->get();
+        $staff = Staff::where('restaurant_id', $restaurantId)->get();
 
-              return response()->json([
+        // decrypt password for each staff
+        foreach ($staff as $item) {
+            try {
+                $item->password = Crypt::decrypt($item->password);
+            } catch (\Exception $e) {
+                $item->password = null; // safety fallback
+            }
+        }
+
+        return response()->json([
             'status' => 'success',
             'data' => $staff
         ]);
-        } catch (ValidationException $e) {
-            return response()->json([
-                'status' => 'error',
-                'errors' => $e->errors(),
-            ], 422);
-        }
 
-        return response()->json(['status' => 'success', 'data' => $staff]);
+    } catch (ValidationException $e) {
+        return response()->json([
+            'status' => 'error',
+            'errors' => $e->errors(),
+        ], 422);
     }
+}
+
 
     // CREATE STAFF
     public function store(Request $request)
@@ -146,20 +153,30 @@ class StaffController extends Controller
 
   // SHOW SINGLE STAFF
     public function show($id)
-    {
-        try {
-            $staff = Staff::find($id);
+{
+    try {
+        $staff = Staff::find($id);
 
-            if (!$staff) {
-                return response()->json(['status' => 'error', 'message' => 'Not found'], 404);
-            }
-
-            return response()->json(['status' => 'success', 'data' => $staff]);
-
-        } catch (Throwable $e) {
-            return $this->errorResponse($e);
+        if (!$staff) {
+            return response()->json(['status' => 'error', 'message' => 'Not found'], 404);
         }
+
+        // decrypt password safely
+        $staff->password = Crypt::decrypt($staff->password);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $staff
+        ]);
+
+    } catch (\Throwable $e) {
+        return response()->json([
+            "status" => "error",
+            "message" => $e->getMessage()
+        ], 500);
     }
+}
+
 
 
      // DELETE STAFF

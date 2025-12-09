@@ -18,7 +18,10 @@ return new class extends Migration
                   ->onDelete('cascade');
 
             $table->string('table_no'); // Example: T1, A2
+
             $table->integer('seating_number'); // Example: 4, 6, 8
+            $table->enum('status', ['available', 'occupied'])
+              ->default('available');
             $table->timestamps();
         });
     }

@@ -15,7 +15,8 @@ class Restaurant_table extends Model
     protected $fillable = [
         'restaurant_id',
         'table_no',
-        'seating_number'
+        'seating_number',
+        'status'
     ];
 
     public function restaurant()
