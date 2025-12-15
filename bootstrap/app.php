@@ -16,7 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Your auth middleware alias
         $middleware->alias([
             'auth.token' => \App\Http\Middleware\AuthToken::class,
+            'staff.auth' => \App\Http\Middleware\AuthStaffToken::class,
+
         ]);
+        
 
 
         // GLOBAL CORS Middleware → IMPORTANT

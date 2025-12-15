@@ -5,17 +5,21 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Staff;
-use Illuminate\Support\Facades\Crypt;
+use App\Models\Restaurant_table;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class StaffController extends Controller
 {
-    // GET RESTAURANT ID
+    /* ===============================
+       GET RESTAURANT ID
+    =============================== */
     private function getRestaurantId(Request $request)
     {
         $user = $request->attributes->get('auth_user');
 
-        if (!$user || !$user->restaurant->id) {
+        if (!$user || !$user->restaurant) {
             return null;
         }
 
@@ -23,10 +27,31 @@ class StaffController extends Controller
     }
 
 
-      // LIST STAFF
-   public function Staff_List(Request $request)
+    public function handle($request, Closure $next)
 {
-    try {
+    $token = $request->bearerToken();
+
+    if (!$token) {
+        return response()->json(['status' => 'error', 'message' => 'Token missing'], 401);
+    }
+
+    $staff = Staff::where('api_token', $token)->first();
+
+    if (!$staff) {
+        return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
+    }
+
+    $request->attributes->set('auth_staff', $staff);
+
+    return $next($request);
+}
+
+
+    /* ===============================
+       LIST STAFF
+    =============================== */
+    public function Staff_List(Request $request)
+    {
         $restaurantId = $this->getRestaurantId($request);
 
         if (!$restaurantId) {
@@ -36,51 +61,36 @@ class StaffController extends Controller
             ], 400);
         }
 
-        $staff = Staff::where('restaurant_id', $restaurantId)->get();
-
-        // decrypt password for each staff
-        foreach ($staff as $item) {
-            try {
-                $item->password = Crypt::decrypt($item->password);
-            } catch (\Exception $e) {
-                $item->password = null; // safety fallback
-            }
-        }
+        $staff = Staff::where('restaurant_id', $restaurantId)
+            ->select('id', 'name', 'email', 'phone', 'role', 'is_logged_in')
+            ->get();
 
         return response()->json([
             'status' => 'success',
             'data' => $staff
         ]);
-
-    } catch (ValidationException $e) {
-        return response()->json([
-            'status' => 'error',
-            'errors' => $e->errors(),
-        ], 422);
     }
-}
 
-
-    // CREATE STAFF
+    /* ===============================
+       CREATE STAFF
+    =============================== */
     public function store(Request $request)
     {
         try {
             $request->validate([
-                'name' => 'required',
-                'email' => 'required|email|unique:staffs,email',
-                'phone' => 'required',
-                'role' => 'required',
-                'password' => 'required',
+                'name'     => 'required|string',
+                'email'    => 'required|email|unique:staffs,email',
+                'phone'    => 'required|string',
+                'role'     => 'required|string',
+                'password' => 'required|min:4',
             ]);
         } catch (ValidationException $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Validation failed',
-                'errors' => $e->errors(),
+                'errors' => $e->errors()
             ], 422);
         }
 
-        // get restaurant id from logged in user
         $restaurantId = $this->getRestaurantId($request);
 
         if (!$restaurantId) {
@@ -90,182 +100,257 @@ class StaffController extends Controller
             ], 400);
         }
 
-        // create staff
         $staff = Staff::create([
             'restaurant_id' => $restaurantId,
             'name' => $request->name,
             'email' => $request->email,
             'phone' => $request->phone,
             'role' => $request->role,
-            'password' => Crypt::encrypt($request->password),
+            'password' => Hash::make($request->password), // ✅ HASHED
         ]);
 
         return response()->json([
             'status' => 'success',
             'message' => 'Staff created successfully',
-            'data' => $staff
+            'data' => [
+                'id' => $staff->id,
+                'name' => $staff->name,
+                'email' => $staff->email,
+                'role' => $staff->role,
+            ]
         ]);
     }
 
-
-
+    /* ===============================
+       UPDATE STAFF
+    =============================== */
     public function update(Request $request, $id)
-{
-    try {
+    {
         $staff = Staff::find($id);
 
         if (!$staff) {
-            return response()->json(['status' => 'error', 'message' => 'Not found'], 404);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Staff not found'
+            ], 404);
         }
 
         $request->validate([
-            'name' => 'required',
+            'name'  => 'required|string',
             'email' => 'required|email|unique:staffs,email,' . $id,
-            'role' => 'required',
+            'role'  => 'required|string',
+            'phone' => 'required|string',
         ]);
 
-        // update basic fields
-        $staff->name = $request->name;
-        $staff->email = $request->email;
-        $staff->phone = $request->phone;
-        $staff->role = $request->role;
+        $staff->update([
+            'name'  => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'role'  => $request->role,
+        ]);
 
-        // UPDATE PASSWORD IF SENT
+        // OPTIONAL PASSWORD UPDATE
         if ($request->filled('password')) {
-            $staff->password = Crypt::encrypt($request->password);
+            $staff->password = Hash::make($request->password);
+            $staff->save();
         }
-
-        $staff->save();
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Staff updated successfully',
+            'message' => 'Staff updated successfully'
+        ]);
+    }
+
+    /* ===============================
+       SHOW SINGLE STAFF
+    =============================== */
+    public function show($id)
+    {
+        $staff = Staff::select(
+            'id', 'name', 'email', 'phone', 'role', 'is_logged_in'
+        )->find($id);
+
+        if (!$staff) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Staff not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
             'data' => $staff
         ]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'status' => 'error',
-            'message' => $e->getMessage()
-        ], 500);
     }
-}
 
-
-  // SHOW SINGLE STAFF
-    public function show($id)
-{
-    try {
+    /* ===============================
+       DELETE STAFF
+    =============================== */
+    public function destroy($id)
+    {
         $staff = Staff::find($id);
 
         if (!$staff) {
-            return response()->json(['status' => 'error', 'message' => 'Not found'], 404);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Staff not found'
+            ], 404);
         }
 
-        // decrypt password safely
-        $staff->password = Crypt::decrypt($staff->password);
+        $staff->delete();
 
         return response()->json([
             'status' => 'success',
-            'data' => $staff
+            'message' => 'Staff deleted successfully'
         ]);
-
-    } catch (\Throwable $e) {
-        return response()->json([
-            "status" => "error",
-            "message" => $e->getMessage()
-        ], 500);
-    }
-}
-
-
-
-     // DELETE STAFF
-    public function destroy($id)
-    {
-        try {
-            $staff = Staff::find($id);
-
-            if (!$staff) {
-                return response()->json(['status' => 'error', 'message' => 'Not found'], 404);
-            }
-
-            $staff->delete();
-
-            return response()->json([
-                'status' => 'success',
-                'message' => 'Deleted'
-            ]);
-
-        } catch (Throwable $e) {
-            return $this->errorResponse($e);
-        }
     }
 
-
-     // LOGIN
+    /* ===============================
+       STAFF LOGIN
+    =============================== */
     public function login(Request $request)
     {
-        try {
-            $request->validate([
-                'email' => 'required',
-                'password' => 'required'
-            ]);
-        } catch (ValidationException $e) {
-            return $this->validationError($e);
-        }
+        $request->validate([
+            'email'    => 'required|email',
+            'password' => 'required'
+        ]);
 
-        try {
-            $staff = Staff::where('email', $request->email)->first();
+        $staff = Staff::where('email', $request->email)->first();
 
-            if (!$staff) {
-                return response()->json(['status' => 'error', 'message' => 'Invalid email'], 401);
-            }
-
-            if (Crypt::decrypt($staff->password) !== $request->password) {
-                return response()->json(['status' => 'error', 'message' => 'Invalid password'], 401);
-            }
-
-            if ($staff->is_logged_in) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Already logged in on another device'
-                ], 403);
-            }
-
-            $staff->is_logged_in = true;
-            $staff->login_device = $request->device ?? $request->header('User-Agent');
-            $staff->save();
-
+        if (!$staff || !Hash::check($request->password, $staff->password)) {
             return response()->json([
-                'status' => 'success',
-                'message' => 'Login successful',
-                'data' => $staff
-            ]);
-
-        } catch (Throwable $e) {
-            return $this->errorResponse($e);
+                'status' => 'error',
+                'message' => 'Invalid email or password'
+            ], 401);
         }
+
+        if ($staff->is_logged_in) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Already logged in on another device'
+            ], 403);
+        }
+
+        $token = bin2hex(random_bytes(40));
+
+        $staff->update([
+            'is_logged_in' => true,
+            'login_device' => $request->header('User-Agent'),
+            'api_token' => $token,
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Login successful',
+            'token' => $token,
+            'staff' => [
+                'id' => $staff->id,
+                'name' => $staff->name,
+                'role' => $staff->role,
+                'restaurant_id' => $staff->restaurant_id,
+            ]
+        ]);
     }
 
-    // LOGOUT
+    /* ===============================
+       STAFF LOGOUT
+    =============================== */
     public function logout(Request $request)
     {
-        try {
-            $staff = Staff::find($request->id);
+        $staff = Staff::where('api_token', $request->bearerToken())->first();
 
-            if (!$staff) {
-                return response()->json(['status' => 'error', 'message' => 'Invalid staff'], 404);
-            }
-
-            $staff->is_logged_in = false;
-            $staff->login_device = null;
-            $staff->save();
-
-            return response()->json(['status' => 'success', 'message' => 'Logout successful']);
-
-        } catch (Throwable $e) {
-            return $this->errorResponse($e);
+        if (!$staff) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized'
+            ], 401);
         }
+
+        $staff->update([
+            'is_logged_in' => false,
+            'login_device' => null,
+            'api_token' => null,
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Logout successful'
+        ]);
     }
 
+
+
+     public function tablelist(Request $request)
+    {
+        // Staff injected by middleware
+        $staff = $request->attributes->get('auth_staff');
+        // dd($staff);
+        // dd($staff->restaurant_id);
+
+
+        if (!$staff) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized'
+            ], 401);
+        }
+
+        $tables = Restaurant_table::where(
+                'restaurant_id',
+                $staff->restaurant_id
+            )
+            ->select(
+                'id',
+                'table_no',
+                'seating_number',
+                'status'
+            )
+            ->orderBy('table_no')
+            ->get();
+            
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $tables
+        ]);
+    }
+
+    /* ===============================
+       UPDATE TABLE STATUS
+    =============================== */
+    public function updateTableStatus(Request $request, $id)
+    {
+        $staff = $request->attributes->get('auth_staff');
+
+        if (!$staff) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized'
+            ], 401);
+        }
+
+        $request->validate([
+            'status' => 'required|in:available,occupied,reserved'
+        ]);
+
+        $table = Restaurant_table::where('id', $id)
+            ->where('restaurant_id', $staff->restaurant_id)
+            ->first();
+
+        if (!$table) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Table not found'
+            ], 404);
+        }
+
+        $table->status = $request->status;
+        $table->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Table status updated',
+            'data' => $table
+        ]);
+    }
 }

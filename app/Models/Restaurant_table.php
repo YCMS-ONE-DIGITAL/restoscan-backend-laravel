@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Model;
 class Restaurant_table extends Model
 {
     //
+        protected $table = 'restaurant_tables'; // 🔴 MUST be this
+
      use HasFactory;
 
     protected $fillable = [

@@ -36,6 +36,21 @@ Route::post('/forgot-password/verify-otp', [ForgetPasswordController::class, 've
 Route::post('/forgot-password/reset', [ForgetPasswordController::class, 'resetPassword']);
 
 
+Route::post('/staff/login', [StaffController::class, 'login']);
+
+Route::middleware('staff.auth')->group(function () {
+    Route::post('/staff/logout', [StaffController::class, 'logout']);
+    // TABLE LIST
+    Route::get('/tables', [StaffController::class, 'tablelist']);
+
+    // UPDATE TABLE STATUS
+    Route::post(
+        '/tables/{id}/status',
+        [StaffController::class, 'updateTableStatus']
+    );
+    // Route::get('/staff/list', [StaffController::class, 'Staff_List']);
+});
+
 
 // Protected Routes
 Route::middleware('auth.token')->group(function () {
