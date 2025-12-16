@@ -5,9 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Staff;
+use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\MenuItem;
 use App\Models\Restaurant_table;
+use App\Models\Category;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
+
 use Throwable;
 
 class StaffController extends Controller
@@ -257,7 +263,7 @@ class StaffController extends Controller
     =============================== */
     public function logout(Request $request)
     {
-        $staff = Staff::where('api_token', $request->bearerToken())->first();
+        $staff = $request->attributes->get('auth_staff');
 
         if (!$staff) {
             return response()->json([
@@ -353,4 +359,237 @@ class StaffController extends Controller
             'data' => $table
         ]);
     }
+
+
+    public function categories(Request $request)
+    {
+        try {
+                    $staff = $request->attributes->get('auth_staff');
+if (!$staff) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized'
+            ], 401);
+        }
+
+            $restaurantId = $staff->restaurant_id;
+
+            if (!$restaurantId) {
+                return response()->json(['message' => 'Restaurant not found'], 404);
+            }
+
+            $categories = Category::where('restaurant_id', $restaurantId)->get();
+
+            return response()->json($categories);
+        } catch (Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
+        }
+    }
+
+
+public function fetch_menu_items_list(Request $request)
+{
+    try {
+        $staff = $request->attributes->get('auth_staff');
+
+        if (!$staff) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 401);
+        }
+
+        $restaurantId = $staff->restaurant_id;
+
+        $query = MenuItem::where('restaurant_id', $restaurantId)
+            ->where('is_available', 1); // ✅ always only available items
+
+        // ✅ CATEGORY FILTER
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        // ✅ VEG / NONVEG FILTER
+        if ($request->filled('type')) {
+            $query->where('type', $request->type); // veg / nonveg
+        }
+
+        // ✅ SEARCH FILTER
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $query->orderBy('name')->get()
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage()
+        ], 500);
+    }
+}
+
+
+public function placeOrder(Request $request)
+{
+    try {
+        $staff = $request->attributes->get('auth_staff');
+
+        if (!$staff) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 401);
+        }
+
+        $validated = $request->validate([
+            'items' => 'required|array|min:1',
+            'items.*.menu_item_id' => 'required|integer',
+            'items.*.name' => 'required|string',
+            'items.*.price' => 'required|numeric',
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.item_note' => 'nullable|string',
+
+            'table_id' => 'nullable|exists:restaurant_tables,id',
+            'table_name' => 'nullable|string',
+            'order_note' => 'nullable|string',
+        ]);
+
+        DB::beginTransaction();
+
+        $total = collect($validated['items'])->sum(
+            fn ($i) => $i['price'] * $i['quantity']
+        );
+
+        $order = Order::create([
+            'restaurant_id' => $staff->restaurant_id,
+            'staff_id' => $staff->id,
+            'table_name' => $validated['table_name'] ?? null,
+            'table_id' => $validated['table_id'] ?? null,
+            'order_note' => $validated['order_note'] ?? null,
+            // 'payment_status' => 'nullable|in:pending,paid',
+            // 'payment_method' => 'nullable|in:cash,upi,card',
+            'total_amount' => $total,
+            'status' => 'pending',
+        ]);
+
+        foreach ($validated['items'] as $item) {
+            OrderItem::create([
+                'order_id' => $order->id,
+                'menu_item_id' => $item['menu_item_id'],
+                'name' => $item['name'],
+                'price' => $item['price'],
+                'quantity' => $item['quantity'],
+                'total' => $item['price'] * $item['quantity'],
+                'item_note' => $item['item_note'] ?? null,
+            ]);
+        }
+
+        DB::commit();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Order placed successfully',
+            'order_id' => $order->id,
+        ]);
+    } catch (\Exception $e) {
+        DB::rollBack();
+
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+        ], 500);
+    }
+}
+
+
+
+    // fetchorder
+    public function fetchOrder(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'order_id' => 'required|exists:orders,id'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $order = Order::with(['items.menu_item', 'table', 'customer'])
+                        ->find($request->order_id);
+
+            if (!$order) {
+                return response()->json(['success' => false, 'message' => 'Order not found'], 404);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Order fetched successfully',
+                'data' => $order
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Something went wrong',
+                'error_details' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Fetch all orders (paginated)
+     */
+    public function fetch_all_orders(Request $request)
+    {
+        try {
+            $staff = $request->attributes->get('auth_staff');
+
+            
+            if (!$staff) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized'
+                ], 401);
+            }
+             $restaurantId = $staff->restaurant_id;
+            
+            if (!$restaurantId) {
+                return response()->json(['success' => false, 'message' => 'Restaurant not found'], 404);
+            }
+
+            // $perPage = (int) $request->get('per_page', 10);
+
+            $orders = Order::with(['table', 'items.menu_item'])
+                ->where('restaurant_id', $restaurantId)
+                ->orderBy('id', 'desc')->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $orders,
+                // 'pagination' => [
+                //     'total' => $orders->total(),
+                //     'per_page' => $orders->perPage(),
+                //     'current_page' => $orders->currentPage(),
+                //     'last_page' => $orders->lastPage(),
+                //     'next_page_url' => $orders->nextPageUrl(),
+                //     'prev_page_url' => $orders->previousPageUrl(),
+                // ]
+            ]);
+
+        } catch (Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+
+
 }

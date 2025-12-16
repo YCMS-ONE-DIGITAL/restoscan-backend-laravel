@@ -49,6 +49,11 @@ Route::middleware('staff.auth')->group(function () {
         [StaffController::class, 'updateTableStatus']
     );
     // Route::get('/staff/list', [StaffController::class, 'Staff_List']);
+        Route::get('/staff/categories', [StaffController::class, 'categories']);
+        Route::get('/staff/menuitemlist', [StaffController::class, 'fetch_menu_items_list']);
+        Route::post('/staff/place-order', [StaffController::class, 'placeOrder']);
+        Route::get('/staff/fetchallorder', [StaffController::class, 'fetch_all_orders']);
+
 });
 
 
