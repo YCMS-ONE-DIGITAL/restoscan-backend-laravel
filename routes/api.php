@@ -53,6 +53,7 @@ Route::middleware('staff.auth')->group(function () {
         Route::get('/staff/menuitemlist', [StaffController::class, 'fetch_menu_items_list']);
         Route::post('/staff/place-order', [StaffController::class, 'placeOrder']);
         Route::get('/staff/fetchallorder', [StaffController::class, 'fetch_all_orders']);
+        Route::get('/staff/orders/by-table', [StaffController::class, 'ordersByTable']);
 
 });
 

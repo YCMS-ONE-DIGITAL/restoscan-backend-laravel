@@ -364,6 +364,7 @@ class StaffController extends Controller
     public function categories(Request $request)
     {
         try {
+            
                     $staff = $request->attributes->get('auth_staff');
 if (!$staff) {
             return response()->json([
@@ -589,6 +590,47 @@ public function placeOrder(Request $request)
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
+
+public function ordersByTable(Request $request)
+{
+    $staff = $request->attributes->get('auth_staff');
+
+    if (!$staff) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Unauthorized'
+        ], 401);
+    }
+
+    $tableId = $request->query('table_id');
+
+    if (!$tableId) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'table_id is required'
+        ], 400);
+    }
+
+    $order = Order::with(['items.menu_item', 'table'])
+        ->where('restaurant_id', $staff->restaurant_id) // ✅ IMPORTANT
+        ->where('table_id', $tableId)
+        ->where('status', 'pending') // optional but recommended
+        ->latest()
+        ->first();
+
+    if (!$order) {
+        return response()->json([
+            'status' => 'success',
+            'data' => null   // 👈 empty but NOT error
+        ]);
+    }
+
+    return response()->json([
+        'status' => 'success',
+        'data' => $order
+    ]);
+}
+
 
 
 
