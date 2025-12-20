@@ -19,6 +19,10 @@ use App\Http\Controllers\Api\ForgetPasswordController;
 use App\Http\Controllers\Api\PublicOtpController;
 use App\Http\Controllers\Api\StaffController;
 
+
+// Route::get('/test', fn () => response()->json(['status' => 'ok']));
+
+
 // Public Routes
 Route::post('/otp/send', [OtpController::class, 'sendOtp']);
 Route::post('/otp/verify', [OtpController::class, 'verifyOtp']);

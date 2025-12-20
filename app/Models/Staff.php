@@ -19,4 +19,9 @@ class Staff extends Model
         'is_logged_in',
         'login_device',
     ];
+
+     public function restaurant()
+    {
+        return $this->belongsTo(Restaurant::class);
+    }
 }

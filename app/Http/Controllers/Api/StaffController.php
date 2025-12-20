@@ -172,9 +172,9 @@ class StaffController extends Controller
     =============================== */
     public function show($id)
     {
-        $staff = Staff::select(
-            'id', 'name', 'email', 'phone', 'role', 'is_logged_in'
-        )->find($id);
+        $staff = Staff::with('restaurant')
+        ->select('id', 'name', 'email', 'phone', 'role', 'is_logged_in', 'restaurant_id')
+        ->find($id);
 
         if (!$staff) {
             return response()->json([
@@ -245,44 +245,58 @@ class StaffController extends Controller
             'api_token' => $token,
         ]);
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Login successful',
-            'token' => $token,
-            'staff' => [
-                'id' => $staff->id,
-                'name' => $staff->name,
-                'role' => $staff->role,
-                'restaurant_id' => $staff->restaurant_id,
-            ]
-        ]);
+       return response()->json([
+    'status' => 'success',
+    'message' => 'Login successful',
+    'token' => $token,
+    'staff' => [
+        'id' => $staff->id,
+        'name' => $staff->name,
+        'role' => $staff->role,
+        'restaurant' => [
+            'id' => $staff->restaurant->id,
+            'name' => $staff->restaurant->restaurant_name,
+            'image' => $staff->restaurant->logo_url,
+        ]
+    ]
+]);
+
     }
 
     /* ===============================
        STAFF LOGOUT
     =============================== */
-    public function logout(Request $request)
-    {
-        $staff = $request->attributes->get('auth_staff');
+   public function logout(Request $request)
+{
+    $staffId = $request->header('staff-id'); // 🔥 HEADER
 
-        if (!$staff) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized'
-            ], 401);
-        }
-
-        $staff->update([
-            'is_logged_in' => false,
-            'login_device' => null,
-            'api_token' => null,
-        ]);
-
+    if (!$staffId) {
         return response()->json([
-            'status' => 'success',
-            'message' => 'Logout successful'
-        ]);
+            'status' => 'error',
+            'message' => 'Staff ID missing'
+        ], 400);
     }
+
+    $staff = Staff::find($staffId);
+
+    if (!$staff) {
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Staff not found'
+        ], 404);
+    }
+
+    $staff->update([
+        'is_logged_in' => false,
+        'login_device' => null,
+    ]);
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Logout successful'
+    ]);
+}
+
 
 
 
