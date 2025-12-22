@@ -12,6 +12,8 @@ class CustomCors
 
         // Allowed frontend origin
         $allowedOrigin = "http://localhost:5173";
+        // $allowedOrigin = env('FRONTEND_URL');
+
 
         // 🔥 Handle OPTIONS Preflight
         if ($request->getMethod() === "OPTIONS") {

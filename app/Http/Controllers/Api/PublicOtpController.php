@@ -49,45 +49,45 @@ class PublicOtpController extends Controller
     );
 
     // ⭐ Fast2SMS DLT Format
-    // $fields = [
-    //     "sender_id" => "DMSTCH",
-    //     "message" => "159475",    // TEMPLATE ID
-    //     "variables_values" => $otp,
-    //     "route" => "dlt",
-    //     "numbers" => $request->phone,
-    // ];
+    $fields = [
+        "sender_id" => "DMSTCH",
+        "message" => "159475",    // TEMPLATE ID
+        "variables_values" => $otp,
+        "route" => "dlt",
+        "numbers" => $request->phone,
+    ];
 
-    // $curl = curl_init();
+    $curl = curl_init();
 
-    // curl_setopt_array($curl, [
-    //     CURLOPT_URL => "https://www.fast2sms.com/dev/bulkV2",
-    //     CURLOPT_RETURNTRANSFER => true,
-    //     CURLOPT_ENCODING => "",
-    //     CURLOPT_MAXREDIRS => 10,
-    //     CURLOPT_TIMEOUT => 30,
-    //     CURLOPT_SSL_VERIFYHOST => 0,
-    //     CURLOPT_SSL_VERIFYPEER => 0,
-    //     CURLOPT_CUSTOMREQUEST => "POST",
-    //     CURLOPT_POSTFIELDS => json_encode($fields),
-    //     CURLOPT_HTTPHEADER => [
-    //         "authorization: " . env("FAST2SMS_API_KEY"),
-    //         "accept: */*",
-    //         "cache-control: no-cache",
-    //         "content-type: application/json"
-    //     ],
-    // ]);
+    curl_setopt_array($curl, [
+        CURLOPT_URL => "https://www.fast2sms.com/dev/bulkV2",
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_ENCODING => "",
+        CURLOPT_MAXREDIRS => 10,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_SSL_VERIFYHOST => 0,
+        CURLOPT_SSL_VERIFYPEER => 0,
+        CURLOPT_CUSTOMREQUEST => "POST",
+        CURLOPT_POSTFIELDS => json_encode($fields),
+        CURLOPT_HTTPHEADER => [
+            "authorization: " . env("FAST2SMS_API_KEY"),
+            "accept: */*",
+            "cache-control: no-cache",
+            "content-type: application/json"
+        ],
+    ]);
 
-    // $response = curl_exec($curl);
-    // $err = curl_error($curl);
+    $response = curl_exec($curl);
+    $err = curl_error($curl);
 
-    // curl_close($curl);
+    curl_close($curl);
 
-    // if ($err) {
-    //     return response()->json([
-    //         'status' => false,
-    //         'message' => "SMS failed: " . $err
-    //     ], 500);
-    // }
+    if ($err) {
+        return response()->json([
+            'status' => false,
+            'message' => "SMS failed: " . $err
+        ], 500);
+    }
 
     return response()->json([
         'status' => true,
