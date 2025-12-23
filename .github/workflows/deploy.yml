@@ -46,5 +46,6 @@ jobs:
             else
               echo '⚠️ composer.json not found, skipping composer install'
             fi &&
-            sudo systemctl restart apache2
+            sudo systemctl restart nginx
+
           "
