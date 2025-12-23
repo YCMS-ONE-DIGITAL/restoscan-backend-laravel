@@ -20,12 +20,12 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H 13.232.71.251 >> ~/.ssh/known_hosts
+          ssh-keyscan -H 13.233.223.198 >> ~/.ssh/known_hosts
 
       # 3️⃣ Test SSH connection
       - name: Test SSH Connection
         run: |
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ubuntu@13.232.71.251 "echo SSH is working!"
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ubuntu@13.233.223.198 "echo SSH is working!"
 
       # 4️⃣ Deploy to EC2
       - name: Deploy to EC2
@@ -34,9 +34,9 @@ jobs:
           ls -la
 
           rsync -avz -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no" \
-          --rsync-path="sudo rsync" ./ ubuntu@13.232.71.251:/var/www/myapp/
+          --rsync-path="sudo rsync" ./ ubuntu@13.233.223.198:/var/www/myapp/
 
-          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ubuntu@13.232.71.251 "
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ubuntu@13.233.223.198 "
             sudo chown -R ubuntu:www-data /var/www/myapp &&
             sudo chmod -R 775 /var/www/myapp &&
             git config --global --add safe.directory /var/www/myapp &&
