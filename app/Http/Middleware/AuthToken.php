@@ -39,9 +39,8 @@ class AuthToken
 
         // 🔒 DEVICE + IP LOCK (Prevents token theft)
         if (
-            $user->login_ip !== $request->ip() 
-            // ||
-            // $user->login_ua !== $request->userAgent()
+                $user->login_ip !== $request->ip() ||
+    $user->login_ua !== $request->userAgent()
         ) {
             return response()->json([
                 'status' => 'error',

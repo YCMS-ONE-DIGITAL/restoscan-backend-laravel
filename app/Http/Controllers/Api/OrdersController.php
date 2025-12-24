@@ -220,111 +220,181 @@ class OrdersController extends Controller
     /**
      * Update Order (status, payment, items and deleted_items)
      */
-    public function update_order(Request $request)
-    {
-        try {
-            $validator = Validator::make($request->all(), [
-                'order_id' => 'required|exists:orders,id',
-                'status' => 'nullable|in:pending,kot,preparing,served,completed,cancelled',
-                'payment_status' => 'nullable|in:pending,paid',
-                'payment_method' => 'nullable|in:cash,upi,card',
-                'order_note' => 'nullable|string',
-                'items' => 'nullable|array',
-                'items.*.order_item_id' => 'required_with:items|exists:order_items,id',
-                'items.*.quantity' => 'required_with:items|integer|min:1',
-                'items.*.item_note' => 'nullable|string',
-                'deleted_items' => 'nullable|array',
-                'deleted_items.*' => 'exists:order_items,id',
-            ]);
+public function update_order(Request $request)
+{
+    try {
 
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors()
-                ], 422);
-            }
+        /* =========================
+           VALIDATION
+        ========================= */
+        $validator = Validator::make($request->all(), [
+            'order_id' => 'required|exists:orders,id',
 
-            $data = $validator->validated();
+            'status' => 'nullable|in:pending,kot,preparing,served,completed,cancelled',
+            'payment_status' => 'nullable|in:pending,paid',
+            'payment_method' => 'nullable|in:cash,upi,card',
+            'order_note' => 'nullable|string',
 
-            $order = Order::find($data['order_id']);
-            if (!$order) {
-                return response()->json(['success' => false, 'message' => 'Order not found'], 404);
-            }
+            'items' => 'nullable|array',
 
-            // Only allow updates for same restaurant (extra safety if needed)
-            $restaurantId = $this->getRestaurantId($request);
-            if ($restaurantId && $order->restaurant_id != $restaurantId) {
-                return response()->json(['success' => false, 'message' => 'Unauthorized to modify this order'], 403);
-            }
+            // Existing order item (update)
+            'items.*.order_item_id' => 'nullable|exists:order_items,id',
 
-            DB::beginTransaction();
+            // New menu item (add)
+            'items.*.menu_item_id' =>
+                'required_without:items.*.order_item_id|exists:menu_items,id',
 
-            // Update simple fields
-            if (array_key_exists('order_note', $data)) {
-                $order->order_note = $data['order_note'];
-            }
-            if (array_key_exists('status', $data)) {
-                $order->status = $data['status'];
-            }
-            if (array_key_exists('payment_status', $data)) {
-                $order->payment_status = $data['payment_status'];
-            }
-            if (array_key_exists('payment_method', $data)) {
-                $order->payment_method = $data['payment_method'];
-            }
+            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.item_note' => 'nullable|string',
 
-            // Delete removed items
-            if (!empty($data['deleted_items'])) {
-                foreach ($data['deleted_items'] as $delId) {
-                    $del = OrderItem::where('id', $delId)
-                        ->where('order_id', $order->id)
-                        ->first();
-                    if ($del) {
-                        $del->delete();
-                    }
+            // Deleted items
+            'deleted_items' => 'nullable|array',
+            'deleted_items.*' => 'exists:order_items,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $data = $validator->validated();
+
+        /* =========================
+           FETCH ORDER
+        ========================= */
+        $order = Order::find($data['order_id']);
+        if (!$order) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Order not found'
+            ], 404);
+        }
+
+        // 🔐 Restaurant safety check
+        $restaurantId = $this->getRestaurantId($request);
+        if ($restaurantId && $order->restaurant_id != $restaurantId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized'
+            ], 403);
+        }
+
+        DB::beginTransaction();
+
+        /* =========================
+           UPDATE ORDER FIELDS
+        ========================= */
+        if (array_key_exists('order_note', $data)) {
+            $order->order_note = $data['order_note'];
+        }
+        if (array_key_exists('status', $data)) {
+            $order->status = $data['status'];
+        }
+        if (array_key_exists('payment_status', $data)) {
+            $order->payment_status = $data['payment_status'];
+        }
+        if (array_key_exists('payment_method', $data)) {
+            $order->payment_method = $data['payment_method'];
+        }
+
+        /* =========================
+           DELETE ITEMS
+        ========================= */
+        if (!empty($data['deleted_items'])) {
+            OrderItem::where('order_id', $order->id)
+                ->whereIn('id', $data['deleted_items'])
+                ->delete();
+        }
+
+        /* =========================
+           UPDATE / ADD ITEMS
+        ========================= */
+        if (!empty($data['items'])) {
+            foreach ($data['items'] as $itm) {
+
+                // 🛡 SAFETY: skip invalid mixed payload
+                if (!empty($itm['order_item_id']) && !empty($itm['menu_item_id'])) {
+                    continue;
                 }
-            }
 
-            // Update items (quantities / notes)
-            if (!empty($data['items'])) {
-                foreach ($data['items'] as $itm) {
+                /* 🔁 UPDATE EXISTING ITEM */
+                if (!empty($itm['order_item_id'])) {
+
                     $orderItem = OrderItem::where('id', $itm['order_item_id'])
                         ->where('order_id', $order->id)
                         ->first();
+
                     if ($orderItem) {
                         $orderItem->quantity = (int) $itm['quantity'];
-                        $orderItem->total = round($orderItem->price * $orderItem->quantity, 2);
-                        if (array_key_exists('item_note', $itm)) {
-                            $orderItem->item_note = $itm['item_note'];
-                        }
+                        $orderItem->total = round(
+                            $orderItem->price * $orderItem->quantity,
+                            2
+                        );
+                        $orderItem->item_note = $itm['item_note'] ?? null;
                         $orderItem->save();
                     }
                 }
+
+                /* ➕ ADD NEW MENU ITEM */
+                elseif (!empty($itm['menu_item_id'])) {
+
+                    $menu = MenuItem::find($itm['menu_item_id']);
+
+                    if ($menu) {
+                        OrderItem::create([
+                            'order_id' => $order->id,
+                            'menu_item_id' => $menu->id,
+                            'name' => $menu->name,
+                            'price' => $menu->price,
+                            'quantity' => (int) $itm['quantity'],
+                            'total' => round(
+                                $menu->price * $itm['quantity'],
+                                2
+                            ),
+                            'item_note' => $itm['item_note'] ?? null,
+                        ]);
+                    }
+                }
             }
-
-            // Recalculate total
-            $newTotal = OrderItem::where('order_id', $order->id)->sum('total');
-            $order->total_amount = round((float)$newTotal, 2);
-            $order->save();
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Order updated successfully',
-                'data' => $order->load(['items.menu_item', 'table', 'customer'])
-            ]);
-
-        } catch (Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update order',
-                'error_details' => $e->getMessage()
-            ], 500);
         }
+
+        /* =========================
+           RECALCULATE TOTAL
+        ========================= */
+        $order->total_amount = round(
+            OrderItem::where('order_id', $order->id)->sum('total'),
+            2
+        );
+
+        $order->save();
+
+        DB::commit();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Order updated successfully',
+            'data' => $order->load([
+                'items.menu_item',
+                'table',
+                'customer'
+            ])
+        ]);
+
+    } catch (\Exception $e) {
+
+        DB::rollBack();
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to update order',
+            'error_details' => $e->getMessage()
+        ], 500);
     }
+}
+
 
     /**
      * Dashboard stats (today, last7days etc)
@@ -360,6 +430,7 @@ class OrdersController extends Controller
 
             $orders = Order::with(['items.menu_item', 'table', 'customer'])
                 ->where('restaurant_id', $restaurantId)
+    ->whereNotIn('status', ['completed', 'cancelled']) // 👉 completed + cancelled exclude
                 ->whereDate('created_at', $today)
                 ->orderBy('id', 'desc')
                 ->get();

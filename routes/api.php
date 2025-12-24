@@ -19,8 +19,7 @@ use App\Http\Controllers\Api\ForgetPasswordController;
 use App\Http\Controllers\Api\PublicOtpController;
 use App\Http\Controllers\Api\StaffController;
 
-
-// Route::get('/test', fn () => response()->json(['status' => 'ok']));
+ Route::get('/test', fn () => response()->json(['status' => 'ok']));
 
 
 // Public Routes

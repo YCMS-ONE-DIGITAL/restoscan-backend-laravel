@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\Api;
+use Illuminate\Support\Facades\File;
 
 use Illuminate\Http\Request;
 use App\Models\Category;
@@ -19,43 +20,69 @@ class CategoryController extends Controller
     /**
      * Upload Category Image
      */
-    public function uploadImage(Request $request)
-    {
-        try {
-            $request->validate([
-                'file' => 'required|file|image|mimes:jpg,jpeg,png,webp|max:4096',
-                'category_name' => 'required|string'
-            ]);
+    
+public function uploadImage(Request $request)
+{
+    try {
+        // ✅ VALIDATION
+        $request->validate([
+            'file' => 'required|image|mimes:jpg,jpeg,png,webp|max:4096',
+            'category_name' => 'required|string'
+        ]);
 
-            $restaurantId = $this->getRestaurantId($request);
-            if (!$restaurantId) {
-                return response()->json(['message' => 'Unauthorized'], 401);
-            }
-
-            $restaurant = $request->attributes->get('auth_user')->restaurant;
-
-            // Sanitize names
-            $restaurantName = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '-', $restaurant->restaurant_name));
-            $categoryName   = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '-', $request->category_name));
-
-            $folder = "category_images/{$restaurantId}";
-            $file = $request->file('file');
-            $extension = $file->getClientOriginalExtension();
-
-            $filename = "{$categoryName}-{$restaurantName}-{$restaurantId}-" . time() . ".{$extension}";
-            $path = $file->storeAs($folder, $filename, 'public');
-
-            return response()->json([
-                'success' => true,
-                'filename' => $path
-            ]);
-        } catch (Exception $e) {
+        $restaurantId = $this->getRestaurantId($request);
+        if (!$restaurantId) {
             return response()->json([
                 'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+                'message' => 'Unauthorized'
+            ], 401);
         }
+
+        $restaurant = $request->attributes->get('auth_user')->restaurant;
+
+        // ✅ SANITIZE NAMES
+        $restaurantName = strtolower(
+            preg_replace('/[^A-Za-z0-9\-]/', '-', $restaurant->restaurant_name)
+        );
+
+        $categoryName = strtolower(
+            preg_replace('/[^A-Za-z0-9\-]/', '-', $request->category_name)
+        );
+
+        /* ======================================
+           PATH: public/upload/restaurant/category_images/{restaurantId}
+        ====================================== */
+        $uploadPath = public_path("upload/restaurant/category_images/{$restaurantId}");
+
+        // Create folder if not exists
+        if (!File::exists($uploadPath)) {
+            File::makeDirectory($uploadPath, 0755, true);
+        }
+
+        $file = $request->file('file');
+        $extension = $file->getClientOriginalExtension();
+
+        $filename = "{$categoryName}-{$restaurantName}-{$restaurantId}-" . time() . ".{$extension}";
+
+        // Move file to public folder
+        $file->move($uploadPath, $filename);
+
+        // Relative path for DB / frontend
+        $relativePath = "upload/restaurant/category_images/{$restaurantId}/{$filename}";
+
+        return response()->json([
+            'success'  => true,
+            'filename' => $relativePath
+        ]);
+
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => false,
+            'message' => $e->getMessage(),
+            'line'    => $e->getLine()
+        ], 500);
     }
+}
 
     /**
      * Create Category

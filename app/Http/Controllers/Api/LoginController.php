@@ -49,6 +49,9 @@ $rawToken = bin2hex(random_bytes(32));   // SAFE TOKEN
     $user->login_ua = $request->userAgent();
     $user->save();
 
+    // $isProduction = app()->environment('production');
+
+
     // SEND RAW TOKEN IN COOKIE (localhost-friendly)
     return response()
         ->json([
@@ -66,8 +69,10 @@ $rawToken = bin2hex(random_bytes(32));   // SAFE TOKEN
             $rawToken,
             60 * 24 * 7,
             '/',
-            'localhost',
-            false,   // ✔ localhost → secure=false
+        //    env('SESSION_DOMAIN'),
+        //     app()->environment('production'),
+            null,
+            false,
             true,
             false,
             'Lax'
@@ -109,6 +114,9 @@ $rawToken = bin2hex(random_bytes(32));   // SAFE TOKEN
     $user->login_ua = null;   
 
     $user->save();
+    
+    // $isProduction = app()->environment('production');
+
 
     return response()
         ->json([
@@ -120,7 +128,9 @@ $rawToken = bin2hex(random_bytes(32));   // SAFE TOKEN
         '',           // Empty value
         -1,           // Expire now
         '/', 
-        'localhost',
+        //  env('SESSION_DOMAIN'),
+        //  app()->environment('production'),
+        null,
         false,
         true,
         false,

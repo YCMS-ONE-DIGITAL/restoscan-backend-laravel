@@ -2,9 +2,11 @@
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
 
-          Header set Access-Control-Allow-Origin "http://localhost:5173"
-    Header set Access-Control-Allow-Methods "GET, OPTIONS"
-    Header set Access-Control-Allow-Headers "Origin"
+    # Header set Access-Control-Allow-Origin "http://localhost:5173"
+
+    # Header set Access-Control-Allow-Origin "%{FRONTEND_URL}e"
+    # Header set Access-Control-Allow-Methods "GET, OPTIONS"
+    # Header set Access-Control-Allow-Headers "Origin"
     </IfModule>
  
 

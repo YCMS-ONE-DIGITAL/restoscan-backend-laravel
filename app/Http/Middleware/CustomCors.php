@@ -11,8 +11,10 @@ class CustomCors
         $origin = $request->headers->get('Origin')?? '*';
 
         // Allowed frontend origin
-        $allowedOrigin = "http://localhost:5173";
+        // $allowedOrigin = "http://localhost:5173";
         // $allowedOrigin = env('FRONTEND_URL');
+        
+ $allowedOrigin = 'http://localhost:5173'; // fallback (IP testing)
 
 
         // 🔥 Handle OPTIONS Preflight

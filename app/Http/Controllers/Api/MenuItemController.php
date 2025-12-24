@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Http\Controllers\Api;
+use Illuminate\Support\Facades\File;
 
 use App\Http\Controllers\Controller;
 use App\Models\MenuItem;
@@ -73,44 +74,71 @@ class MenuItemController extends Controller
     /**
      * Upload Menu Item Image
      */
-    public function uploadImage(Request $request)
-    {
-        try {
-            $request->validate([
-                'file' => 'required|file|image|mimes:jpg,jpeg,png,webp|max:5048',
-                'item_name' => 'required|string'
-            ]);
 
-            $restaurantId = $this->getRestaurantId($request);
-            if (!$restaurantId) {
-                return response()->json(['message' => 'Unauthorized'], 401);
-            }
+public function uploadImage(Request $request)
+{
+    try {
+        // ✅ VALIDATION
+        $request->validate([
+            'file'      => 'required|image|mimes:jpg,jpeg,png,webp|max:5048',
+            'item_name' => 'required|string'
+        ]);
 
-            $restaurant = $request->get('auth_user')->restaurant;
-            $restaurantName = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '-', $restaurant->restaurant_name));
-            $itemName      = strtolower(preg_replace('/[^A-Za-z0-9\-]/', '-', $request->item_name));
-
-            $folder = "menu_items/{$restaurantId}";
-            $file = $request->file('file');
-            $extension = $file->getClientOriginalExtension();
-
-            $filename = "{$itemName}-{$restaurantName}-{$restaurantId}-" . time() . ".{$extension}";
-            $path = $file->storeAs($folder, $filename, 'public');
-
-            return response()->json([
-                'success' => true,
-                'filename' => $path
-            ]);
-
-        } catch (Exception $e) {
-
+        $restaurantId = $this->getRestaurantId($request);
+        if (!$restaurantId) {
             return response()->json([
                 'success' => false,
-                'message' => 'Image upload failed.',
-                'error_details' => $e->getMessage()
-            ], 500);
+                'message' => 'Unauthorized'
+            ], 401);
         }
+
+        $restaurant = $request->get('auth_user')->restaurant;
+
+        // ✅ SANITIZE NAMES
+        $restaurantName = strtolower(
+            preg_replace('/[^A-Za-z0-9\-]/', '-', $restaurant->restaurant_name)
+        );
+
+        $itemName = strtolower(
+            preg_replace('/[^A-Za-z0-9\-]/', '-', $request->item_name)
+        );
+
+        /* ======================================
+           PATH: public/upload/restaurant/menu_items/{restaurantId}
+        ====================================== */
+        $uploadPath = public_path("upload/restaurant/menu_items/{$restaurantId}");
+
+        // Create folder if not exists
+        if (!File::exists($uploadPath)) {
+            File::makeDirectory($uploadPath, 0755, true);
+        }
+
+        $file = $request->file('file');
+        $extension = $file->getClientOriginalExtension();
+
+        $filename = "{$itemName}-{$restaurantName}-{$restaurantId}-" . time() . ".{$extension}";
+
+        // Move file to public folder
+        $file->move($uploadPath, $filename);
+
+        // Relative path for DB / frontend
+        $relativePath = "upload/restaurant/menu_items/{$restaurantId}/{$filename}";
+
+        return response()->json([
+            'success'  => true,
+            'filename' => $relativePath
+        ]);
+
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Image upload failed.',
+            'error'   => $e->getMessage(),
+            'line'    => $e->getLine()
+        ], 500);
     }
+}
+
 
     /**
      * Fetch All Items
