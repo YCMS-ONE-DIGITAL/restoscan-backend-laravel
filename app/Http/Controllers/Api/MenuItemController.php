@@ -261,34 +261,39 @@ public function uploadImage(Request $request)
      * Delete Menu Item
      */
     public function destroy(Request $request, $id)
-    {
-        try {
-            $restaurantId = $this->getRestaurantId($request);
+{
+    try {
+        $restaurantId = $this->getRestaurantId($request);
 
-            $item = MenuItem::where('id', $id)
-                            ->where('restaurant_id', $restaurantId)
-                            ->first();
+        $item = MenuItem::where('id', $id)
+                        ->where('restaurant_id', $restaurantId)
+                        ->first();
 
-            if (!$item) {
-                return response()->json(['message' => 'Menu item not found'], 404);
-            }
-
-            // Delete image if needed
-            if ($item->image && Storage::disk('public')->exists($item->image)) {
-                Storage::disk('public')->delete($item->image);
-            }
-
-            $item->delete();
-
-            return response()->json(['message' => 'Menu item deleted successfully']);
-
-        } catch (Exception $e) {
-            return response()->json([
-                'message' => 'Error while deleting item.',
-                'error' => $e->getMessage()
-            ], 500);
+        if (!$item) {
+            return response()->json(['message' => 'Menu item not found'], 404);
         }
+
+        // ✅ DELETE IMAGE FROM public/
+        if ($item->image) {
+            $fullPath = public_path($item->image);
+
+            if (File::exists($fullPath)) {
+                File::delete($fullPath);
+            }
+        }
+
+        $item->delete();
+
+        return response()->json(['message' => 'Menu item deleted successfully']);
+
+    } catch (Exception $e) {
+        return response()->json([
+            'message' => 'Error while deleting item',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
+
 
     /**
      * Public API for customers

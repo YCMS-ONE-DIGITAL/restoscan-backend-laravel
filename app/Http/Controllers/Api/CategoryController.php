@@ -165,9 +165,13 @@ public function uploadImage(Request $request)
 
             if (isset($validated['image'])) {
                 // Delete old image
-                if ($category->image && Storage::disk('public')->exists($category->image)) {
-                    Storage::disk('public')->delete($category->image);
-                }
+               if ($category->image) {
+    $fullPath = public_path($category->image);
+    if (File::exists($fullPath)) {
+        File::delete($fullPath);
+    }
+}
+
                 $category->image = $validated['image'];
             }
 
@@ -198,9 +202,13 @@ public function uploadImage(Request $request)
                 return response()->json(['message' => 'Category not found'], 404);
             }
 
-            if ($category->image && Storage::disk('public')->exists($category->image)) {
-                Storage::disk('public')->delete($category->image);
-            }
+            if ($category->image) {
+    $fullPath = public_path($category->image);
+    if (File::exists($fullPath)) {
+        File::delete($fullPath);
+    }
+}
+
 
             $category->delete();
 

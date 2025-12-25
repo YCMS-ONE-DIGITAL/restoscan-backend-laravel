@@ -20,6 +20,7 @@ class Restaurant extends Model
         'state',
         'pincode',
         'contact_number',
+        'logo_url', 
     ];
 
     // 🔹 One restaurant belongs to one user

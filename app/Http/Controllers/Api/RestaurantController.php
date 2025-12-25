@@ -33,13 +33,14 @@ class RestaurantController extends Controller
         ]);
     }
 
-  public function store(Request $request)
+
+
+ public function store(Request $request)
 {
     try {
 
-        // Auth check
+        // ✅ Auth check
         $user = $this->getUser($request);
-
         if (!$user) {
             return response()->json([
                 'status' => 'error',
@@ -47,7 +48,7 @@ class RestaurantController extends Controller
             ], 401);
         }
 
-        // Check if restaurant already exists
+        // ✅ Check if restaurant already exists
         if (Restaurant::where('user_id', $user->id)->exists()) {
             return response()->json([
                 'status' => 'error',
@@ -55,8 +56,8 @@ class RestaurantController extends Controller
             ], 400);
         }
 
-        // Validation
-        $validator = \Validator::make($request->all(), [
+        // ✅ Validation
+        $validated = $request->validate([
             'restaurant_name'  => 'required|string|max:255',
             'address'          => 'nullable|string|max:255',
             'city'             => 'nullable|string|max:100',
@@ -66,15 +67,10 @@ class RestaurantController extends Controller
             'logo_url'         => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Validation failed',
-                'errors'  => $validator->errors()
-            ], 422);
-        }
-
-        // Process Logo Upload
+        /* ===============================
+           ✅ PROCESS LOGO UPLOAD
+           Path: public/upload/restaurant/logos
+        =============================== */
         $logoPath = null;
 
         if ($request->hasFile('logo_url')) {
@@ -83,24 +79,35 @@ class RestaurantController extends Controller
             if (!$file->isValid()) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Invalid image file. Please upload a valid image.'
+                    'message' => 'Invalid image file'
                 ], 400);
             }
 
-            $filename = time().'_'.$file->getClientOriginalName();
-            $logoPath = $file->storeAs('logos', $filename, 'public');
+            $destinationPath = public_path('upload/restaurant/logos');
+
+            // 🔥 IMPORTANT FIX: create folder if not exists
+            if (!File::exists($destinationPath)) {
+                File::makeDirectory($destinationPath, 0755, true);
+            }
+
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+
+            $file->move($destinationPath, $filename);
+
+            // ✅ Correct relative path (THIS WAS IMPORTANT)
+            $logoPath = 'upload/restaurant/logos/' . $filename;
         }
 
-        // Create Restaurant
+        // ✅ Create Restaurant
         $restaurant = Restaurant::create([
             'user_id'          => $user->id,
-            'restaurant_name'  => $request->restaurant_name,
-            'address'          => $request->address,
-            'city'             => $request->city,
-            'state'            => $request->state,
-            'pincode'          => $request->pincode,
-            'contact_number'   => $request->contact_number,
-            'logo_url'         => $logoPath
+            'restaurant_name'  => $validated['restaurant_name'],
+            'address'          => $validated['address'] ?? null,
+            'city'             => $validated['city'] ?? null,
+            'state'            => $validated['state'] ?? null,
+            'pincode'          => $validated['pincode'] ?? null,
+            'contact_number'   => $validated['contact_number'] ?? null,
+            'logo_url'         => $logoPath,
         ]);
 
         return response()->json([
@@ -110,14 +117,12 @@ class RestaurantController extends Controller
             'has_restaurant' => true
         ], 201);
 
-    } catch (\Exception $e) {
-
+    } catch (\Throwable $e) {
         return response()->json([
             'status' => 'error',
             'message' => 'Something went wrong while saving restaurant.',
-            'error_details' => $e->getMessage() // Remove in production
+            'error_details' => $e->getMessage()
         ], 500);
-
     }
 }
 
